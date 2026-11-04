@@ -31,14 +31,12 @@ I come from infrastructure/ops and am learning to code. Please:
 
 ## Lab environment
 
-| Machine | Arch | Role |
-|---|---|---|
-| `dev01` | amd64 | Ubuntu 24.04 VM on Proxmox; development |
-| Raspberry Pi 4B | arm64 | Single k3s node (runs the app) |
-| Proxmox host | amd64 | ~1.2 GB RAM free; its nodes join k3s after a RAM upgrade |
+- Development happens on **amd64**.
+- The k3s **staging** cluster runs on **arm64**. amd64 nodes may join later.
+- So **every image must build for both `linux/amd64` and `linux/arm64`** (Docker Buildx).
 
-Development happens on amd64 and production runs on arm64, so **every image must build for
-both `linux/amd64` and `linux/arm64`** (Docker Buildx).
+Machine-specific details (hostnames, hardware, capacity) live in `CLAUDE.local.md`,
+which is git-ignored and never committed.
 
 ## Repository layout (planned)
 
