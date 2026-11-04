@@ -69,14 +69,20 @@ With Docker Compose (app + Postgres):
 ```bash
 cp .env.example .env              # once; then set your own POSTGRES_PASSWORD (never commit .env)
 docker compose up --build         # start app + Postgres; app at http://127.0.0.1:8000
-docker compose run --rm app pytest   # run tests inside the container
+docker compose run --rm app pytest   # run ALL tests, incl. ones that need the database
+docker compose run --rm app alembic upgrade head   # apply database migrations
 docker compose down               # stop (add -v to also delete the database volume)
 ```
 
-Coming in Phase 0c (database):
+Health endpoints: `/health` = process is alive; `/ready` = database is reachable (503 if not).
+
+Tests marked `@pytest.mark.integration` need a real Postgres. They run inside Compose and
+are skipped (with a reason) under plain `uv run pytest`.
+
+New migration (no database needed; ruff runs on the new file automatically):
 
 ```bash
-docker compose run --rm app alembic upgrade head  # apply migrations
+uv run alembic revision -m "describe the change"
 ```
 
 ## Conventions

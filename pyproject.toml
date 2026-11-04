@@ -5,7 +5,11 @@ description = "IT runbook and incident knowledge base with AI-assisted search"
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
+    "alembic==1.20.1",
     "fastapi==0.162.0",
+    "psycopg[binary]==3.3.8",
+    "pydantic-settings==2.16.2",
+    "sqlalchemy==2.1.8",
     "uvicorn==0.54.0",
 ]
 
@@ -13,6 +17,9 @@ dependencies = [
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a real Postgres (runs inside Docker Compose / CI)",
+]
 
 [tool.ruff]
 line-length = 100
