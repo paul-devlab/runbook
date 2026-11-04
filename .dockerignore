@@ -1,0 +1,20 @@
+# Files Docker must NOT send into the build. Keeps images small and,
+# most importantly, keeps secrets and local-only files out of images.
+
+# Secrets and local notes
+.env
+.env.*
+!.env.example
+CLAUDE.local.md
+
+# Local environments, caches, VCS
+.venv/
+.git/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Not needed inside the image
+docs/
+*.md

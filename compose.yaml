@@ -1,0 +1,45 @@
+# Local development stack: the Runbook app + PostgreSQL.
+#
+#   cp .env.example .env      # once; then set your own POSTGRES_PASSWORD
+#   docker compose up --build
+#
+# Values like ${POSTGRES_USER} are read from .env automatically.
+# `:?message` makes Compose stop with an error if the variable is missing.
+
+services:
+  app:
+    build:
+      context: .
+      target: dev            # the "dev" stage of the Dockerfile (includes pytest/ruff)
+    # --reload restarts the server whenever a file in ./app changes.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "127.0.0.1:8000:8000"   # only reachable from this machine, not the LAN
+    volumes:
+      # Mount source code read-only so edits show up without rebuilding.
+      - ./app:/app/app:ro
+      - ./tests:/app/tests:ro
+    depends_on:
+      db:
+        condition: service_healthy   # wait until Postgres is accepting connections
+
+  db:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      # Named volume: data survives `docker compose down` (removed only with -v).
+      # Postgres 18+ images keep data under /var/lib/postgresql/<major>/, so the
+      # volume is mounted one level up.
+      - pgdata:/var/lib/postgresql
+    # No `ports:`: the database is reachable only by the app inside Compose.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
