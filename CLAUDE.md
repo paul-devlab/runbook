@@ -64,12 +64,18 @@ uv run ruff format .              # format
 uv run uvicorn app.main:app --reload   # run the app at http://127.0.0.1:8000 (try /health, /docs)
 ```
 
-Coming in Phase 0b/0c (Docker Compose + database):
+With Docker Compose (app + Postgres):
 
 ```bash
-cp .env.example .env              # then fill in values locally (never commit .env)
-docker compose up --build         # start app + Postgres
-docker compose run --rm app pytest            # run tests
+cp .env.example .env              # once; then set your own POSTGRES_PASSWORD (never commit .env)
+docker compose up --build         # start app + Postgres; app at http://127.0.0.1:8000
+docker compose run --rm app pytest   # run tests inside the container
+docker compose down               # stop (add -v to also delete the database volume)
+```
+
+Coming in Phase 0c (database):
+
+```bash
 docker compose run --rm app alembic upgrade head  # apply migrations
 ```
 
