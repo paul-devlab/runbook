@@ -52,15 +52,25 @@ compose.yaml  Local development stack
 
 ## How to run and test
 
-These commands become available in Phase 0. Update this section as things change.
+Update this section as things change.
+
+Available now (needs [uv](https://docs.astral.sh/uv/) installed):
+
+```bash
+uv sync                           # create .venv and install pinned deps from uv.lock
+uv run pytest                     # run tests
+uv run ruff check .               # lint
+uv run ruff format .              # format
+uv run uvicorn app.main:app --reload   # run the app at http://127.0.0.1:8000 (try /health, /docs)
+```
+
+Coming in Phase 0b/0c (Docker Compose + database):
 
 ```bash
 cp .env.example .env              # then fill in values locally (never commit .env)
 docker compose up --build         # start app + Postgres
 docker compose run --rm app pytest            # run tests
 docker compose run --rm app alembic upgrade head  # apply migrations
-uv run ruff check .               # lint
-uv run ruff format .              # format
 ```
 
 ## Conventions
