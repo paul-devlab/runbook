@@ -45,7 +45,7 @@ app/          FastAPI application (routes, models, templates, services)
 tests/        pytest tests
 migrations/   Alembic database migrations
 deploy/       Kubernetes manifests synced by Argo CD
-docs/         Specification and other docs
+docs/         Specification and other docs (staging cluster build: docs/staging.md)
 compose.yaml  Local development stack
 .env.example  Environment variable names (no real values)
 ```
