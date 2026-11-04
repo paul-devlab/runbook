@@ -94,6 +94,7 @@ is 7 days old. Review and merge them like any other PR. It does **not** update t
 pins, so bump them by hand, keeping duplicates in step:
 
 - `pgvector/pgvector` service image in `ci.yml` (match `compose.yaml`)
+- `ghcr.io/astral-sh/uv` image in the `Dockerfile`'s `COPY --from=` line
 - uv `version:` in `ci.yml` (match the `uv` image in the `Dockerfile`)
 - `tonistiigi/binfmt` and `moby/buildkit` in `image.yml`
 
