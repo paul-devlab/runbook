@@ -1,0 +1,35 @@
+[project]
+name = "runbook"
+version = "0.1.0"
+description = "IT runbook and incident knowledge base with AI-assisted search"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "fastapi==0.162.0",
+    "uvicorn==0.54.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W: style errors, F: real bugs (unused imports, undefined names),
+# I: import sorting, B: likely bugs, UP: modern Python syntax, S: security checks
+select = ["E", "W", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use plain `assert`, which the security rule S101 would otherwise flag.
+"tests/**" = ["S101"]
+
+[dependency-groups]
+dev = [
+    "httpx2==2.16.0",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
+]
