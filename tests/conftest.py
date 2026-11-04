@@ -1,7 +1,7 @@
 """Shared pytest setup (pytest loads conftest.py automatically).
 
 Tests marked `@pytest.mark.integration` need a real Postgres. They run when
-POSTGRES_HOST is set (as it is inside Docker Compose and, later, CI) and are
+POSTGRES_HOST is set (as it is inside Docker Compose and in CI) and are
 skipped otherwise, with the reason shown in the test summary.
 """
 

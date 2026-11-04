@@ -16,6 +16,9 @@ def db_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("POSTGRES_PASSWORD", AWKWARD_PASSWORD)
     monkeypatch.setenv("POSTGRES_DB", "runbook")
     monkeypatch.setenv("POSTGRES_HOST", "db.example")
+    # Make sure the port falls back to its default (5432), even if the shell
+    # running the tests has POSTGRES_PORT set.
+    monkeypatch.delenv("POSTGRES_PORT", raising=False)
 
 
 def test_database_url_is_built_from_env(db_env) -> None:
