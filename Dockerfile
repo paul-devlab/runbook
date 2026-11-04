@@ -66,6 +66,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 FROM runtime-base AS dev
 COPY --from=builder-dev /app/.venv /app/.venv
 COPY pyproject.toml ./
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY app ./app
 COPY tests ./tests
 # /app is read-only for the non-root user, so turn off pytest's cache
@@ -76,5 +78,9 @@ USER app
 # ---------------------------------------------------------------- runtime
 FROM runtime-base AS runtime
 COPY --from=builder /app/.venv /app/.venv
+# Migrations ship in the production image so they can run from it
+# (e.g. as a Kubernetes Job before a new version starts).
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY app ./app
 USER app
