@@ -1,0 +1,68 @@
+# Dependabot: GitHub's bot that checks for newer versions of what we pin, and
+# opens a pull request for each update. Nothing merges by itself: every update
+# goes through CI and a human review like any other PR.
+#
+# Docs: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+
+version: 2
+
+updates:
+  # Python packages: pyproject.toml + uv.lock (both are updated together).
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Wait until a release is a week old before proposing it. Brand-new
+    # releases are where most broken or malicious versions get caught.
+    cooldown:
+      default-days: 7
+    # Minor and patch updates arrive as one PR; major updates (which may
+    # break things) still get a PR each.
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Images in the Dockerfile (python, and the uv image we copy the binary from).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    ignore:
+      # Stay on Python 3.12 (matches pyproject.toml). Moving to 3.13 is a
+      # deliberate decision, not a routine update; patch releases still come.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Images in compose.yaml (the pgvector Postgres image).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Actions used in .github/workflows/. Dependabot updates the pinned commit
+  # SHA *and* the "# vX.Y.Z" comment next to it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"

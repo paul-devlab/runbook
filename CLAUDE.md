@@ -88,6 +88,15 @@ The image workflow (`.github/workflows/image.yml`) builds the `runtime` stage fo
 `ghcr.io/paul-devlab/runbook` tagged `sha-<full commit SHA>` (deploy this one) and `main`.
 There is no `latest` tag.
 
+Dependabot (`.github/dependabot.yml`) opens update PRs every Monday for Python packages
+(uv), Dockerfile and `compose.yaml` images, and GitHub Actions. It waits until a release
+is 7 days old. Review and merge them like any other PR. It does **not** update these
+pins, so bump them by hand, keeping duplicates in step:
+
+- `pgvector/pgvector` service image in `ci.yml` (match `compose.yaml`)
+- uv `version:` in `ci.yml` (match the `uv` image in the `Dockerfile`)
+- `tonistiigi/binfmt` and `moby/buildkit` in `image.yml`
+
 New migration (no database needed; ruff runs on the new file automatically):
 
 ```bash
