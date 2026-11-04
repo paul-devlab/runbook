@@ -1,0 +1,85 @@
+# CI: lint and test every pull request, and every push to main.
+#
+# GitHub runs this file automatically because it lives in .github/workflows/.
+# Results show up as a check on the PR ("CI / lint-and-test").
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: this workflow only needs to read the code.
+permissions:
+  contents: read
+
+# If you push again to the same branch, cancel the older run that's still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    # A throwaway Postgres for the integration tests. Same image as compose.yaml.
+    # It exists only for this job and is deleted afterwards.
+    services:
+      db:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          # Not a real secret: this database lives for a few minutes on a
+          # disposable runner and holds no data.
+          POSTGRES_USER: runbook
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: runbook
+        ports:
+          - 5432:5432
+        # Don't start the steps until Postgres accepts connections.
+        options: >-
+          --health-cmd "pg_isready -U runbook -d runbook"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Read by app/config.py. The job runs directly on the runner (not in a
+    # container), so the database is on localhost via the mapped port.
+    env:
+      POSTGRES_USER: runbook
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: runbook
+      POSTGRES_HOST: localhost
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Don't leave a Git token on disk; later steps don't need it.
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7" # same uv version as the Dockerfile
+          enable-cache: true # reuse downloaded packages between runs
+
+      # --locked: fail if uv.lock is out of date with pyproject.toml.
+      # uv installs Python 3.12 itself, as named in .python-version.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      # --check: report files that need formatting, but don't change them.
+      - name: Check formatting (ruff format)
+        run: uv run ruff format --check .
+
+      # Proves the migrations apply cleanly to an empty database.
+      - name: Apply database migrations
+        run: uv run alembic upgrade head
+
+      - name: Run tests
+        run: uv run pytest

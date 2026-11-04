@@ -79,6 +79,10 @@ Health endpoints: `/health` = process is alive; `/ready` = database is reachable
 Tests marked `@pytest.mark.integration` need a real Postgres. They run inside Compose and
 are skipped (with a reason) under plain `uv run pytest`.
 
+CI (`.github/workflows/ci.yml`) runs on every PR and every push to `main`: `ruff check`,
+`ruff format --check`, `alembic upgrade head` and `pytest`, with a throwaway Postgres so
+the integration tests run too. Run the same checks locally before opening a PR.
+
 New migration (no database needed; ruff runs on the new file automatically):
 
 ```bash
