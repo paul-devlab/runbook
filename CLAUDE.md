@@ -83,6 +83,11 @@ CI (`.github/workflows/ci.yml`) runs on every PR and every push to `main`: `ruff
 `ruff format --check`, `alembic upgrade head` and `pytest`, with a throwaway Postgres so
 the integration tests run too. Run the same checks locally before opening a PR.
 
+The image workflow (`.github/workflows/image.yml`) builds the `runtime` stage for
+`linux/amd64` and `linux/arm64`. On PRs it only builds; on `main` it pushes to
+`ghcr.io/paul-devlab/runbook` tagged `sha-<full commit SHA>` (deploy this one) and `main`.
+There is no `latest` tag.
+
 New migration (no database needed; ruff runs on the new file automatically):
 
 ```bash
