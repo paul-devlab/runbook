@@ -7,10 +7,11 @@ from here: `uvicorn app.main:app`.
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import LoginRequired
+from app.csrf import REJECTED, CsrfFailed, csrf_middleware
 from app.db import database_is_reachable
 from app.web import STATIC_DIR
 from app.web import router as web_router
@@ -20,6 +21,9 @@ app = FastAPI(title="Runbook", version="0.1.0")
 # CSS, JavaScript and images, served from app/static/ at /static/...
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# Refuse cross-site form posts and hand out CSRF tokens (app/csrf.py).
+app.middleware("http")(csrf_middleware)
+
 # HTML pages (app/web.py).
 app.include_router(web_router)
 
@@ -28,6 +32,12 @@ app.include_router(web_router)
 def redirect_to_login(request: Request, exc: LoginRequired) -> RedirectResponse:
     """A page needed a login and there wasn't one: send the browser to /login."""
     return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.exception_handler(CsrfFailed)
+def csrf_failed(request: Request, exc: CsrfFailed) -> PlainTextResponse:
+    """A form post without a matching CSRF token (see app/csrf.py)."""
+    return PlainTextResponse(REJECTED, status_code=status.HTTP_403_FORBIDDEN)
 
 
 @app.get("/health")

@@ -56,6 +56,12 @@ spec:
             # (back to the safe default, true) once staging has TLS.
             - name: SESSION_COOKIE_SECURE
               value: "false"
+            # Requests arrive via Traefik, so the app sees Traefik's address,
+            # not the browser's. Uvicorn uses the X-Forwarded-For header
+            # instead, but only from these addresses: k3s's pod network, where
+            # Traefik runs. (Login rate limiting counts failures per IP.)
+            - name: FORWARDED_ALLOW_IPS
+              value: "10.42.0.0/16"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

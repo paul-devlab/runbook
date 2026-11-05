@@ -10,6 +10,8 @@
 
     {# A plain HTML form: works without JavaScript. #}
     <form method="post" action="/login">
+      {# Proves the form came from our own page (see app/csrf.py). #}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label for="email">Email</label>
       <input id="email" name="email" type="email" autocomplete="username"
              value="{{ email or '' }}" maxlength="320" required autofocus>

@@ -64,3 +64,22 @@ class UserSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LoginFailure(Base):
+    """One failed login attempt, used to slow down password guessing.
+
+    app/auth.py counts recent rows per email and per IP address and refuses
+    further attempts once there are too many. Old rows are deleted as we go.
+    """
+
+    __tablename__ = "login_failures"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Whatever email was typed (lowercased), whether or not an account exists.
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    # IPv4 or IPv6 address as text (an IPv6 address is at most 45 characters).
+    ip_address: Mapped[str] = mapped_column(String(45), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

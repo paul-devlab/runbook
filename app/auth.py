@@ -18,12 +18,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.models import User, UserSession
+from app.models import LoginFailure, User, UserSession
 from app.security import hash_password, needs_rehash, verify_password
 
 SESSION_COOKIE = "runbook_session"
@@ -54,6 +54,52 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
         # Our hashing settings have been strengthened since this hash was made.
         user.password_hash = hash_password(password)
     return user
+
+
+# --- Rate limiting -----------------------------------------------------------
+#
+# Without a limit, someone could try thousands of passwords a minute. We record
+# each failed login and refuse more attempts once an email or an IP address has
+# too many recent failures. The check happens *before* the password is checked,
+# so a locked-out guesser learns nothing even if they then guess right.
+#
+# Trade-off: someone who knows your email can lock you out for 15 minutes by
+# failing on purpose. That's the usual price of a per-account limit.
+
+FAILURE_WINDOW = timedelta(minutes=15)
+MAX_FAILURES_PER_EMAIL = 5  # one person mistyping won't hit this
+MAX_FAILURES_PER_IP = 20  # several people behind one office NAT share an IP
+
+
+def too_many_failures(db: Session, email: str, ip_address: str) -> bool:
+    """True if this email or IP has failed too often within FAILURE_WINDOW."""
+    since = datetime.now(UTC) - FAILURE_WINDOW
+    email = email.strip().lower()
+    by_email, by_ip = db.execute(
+        select(
+            func.count().filter(LoginFailure.email == email),
+            func.count().filter(LoginFailure.ip_address == ip_address),
+        ).where(
+            LoginFailure.created_at > since,
+            or_(LoginFailure.email == email, LoginFailure.ip_address == ip_address),
+        )
+    ).one()
+    return by_email >= MAX_FAILURES_PER_EMAIL or by_ip >= MAX_FAILURES_PER_IP
+
+
+def record_failure(db: Session, email: str, ip_address: str) -> None:
+    """Remember a failed login. Commits."""
+    now = datetime.now(UTC)
+    # Housekeeping: rows older than the window no longer count, so delete them.
+    db.execute(delete(LoginFailure).where(LoginFailure.created_at < now - FAILURE_WINDOW))
+    db.add(LoginFailure(email=email.strip().lower()[:320], ip_address=ip_address, created_at=now))
+    db.commit()
+
+
+def clear_failures(db: Session, email: str) -> None:
+    """After a successful login, the account's earlier typos stop counting.
+    (The IP's failures still count, so one IP can't rotate through accounts.)"""
+    db.execute(delete(LoginFailure).where(LoginFailure.email == email.strip().lower()))
 
 
 def start_session(db: Session, user: User) -> str:

@@ -11,7 +11,8 @@
     {# HTMX 2.0.11, served from our own app (vendored), not a CDN. #}
     <script src="{{ url_for('static', path='vendor/htmx-2.0.11.min.js').path }}" defer></script>
   </head>
-  <body>
+  {# HTMX requests send the CSRF token as a header, so hx-post etc. work too. #}
+  <body hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
     <header class="site-header">
       <a class="brand" href="{{ url_for('home').path }}">Runbook</a>
       <nav aria-label="Main">
@@ -23,6 +24,7 @@
           <span class="muted">{{ user.display_name }}</span>
           {# Logout is a POST form, not a link (see app/web.py). #}
           <form method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="link-button">Log out</button>
           </form>
         </div>
