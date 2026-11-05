@@ -13,6 +13,14 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 3 # keep a few old versions around for `kubectl rollout undo`
+  # Rollouts: start the new pod first (maxSurge 1) and only stop the old one
+  # once the new one is ready (maxUnavailable 0), so there's always a pod
+  # serving. (The defaults do the same for one replica, but only via rounding.)
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: runbook
@@ -24,6 +32,10 @@ spec:
     spec:
       # The app never talks to the Kubernetes API, so don't give it a token.
       automountServiceAccountToken: false
+      # Time allowed to stop: the 5s preStop pause below, then up to 25s for
+      # Uvicorn to finish requests already in progress. (30s is the default;
+      # it's written out so the numbers can be read together.)
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 999 # the "app" user created in the Dockerfile
@@ -62,6 +74,16 @@ spec:
             # Traefik runs. (Login rate limiting counts failures per IP.)
             - name: FORWARDED_ALLOW_IPS
               value: "10.42.0.0/16"
+          # Avoid errors during rollouts. When a pod is told to stop, Kubernetes
+          # also tells Traefik to stop sending it traffic, but both happen at
+          # once and Traefik takes a moment to catch up. Without a pause, the
+          # app could stop while Traefik still sends it requests (a 502).
+          # The pause keeps it serving for 5s while Traefik switches over;
+          # then Uvicorn gets SIGTERM and shuts down cleanly.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
