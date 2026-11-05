@@ -88,7 +88,9 @@ them to Claude as untrusted `<record>` blocks; with no matches Claude isn't call
 are linked on the server, only for records sent, and every other link in the answer is
 removed. Needs `ANTHROPIC_API_KEY` (staging: SealedSecret `runbook-anthropic`); the model is
 `ANTHROPIC_MODEL`. Tests replace the client (`get_claude`) with a fake, so they never call
-the API. Questions and answers are never stored or logged.
+the API. Questions and answers are never stored or logged. Each user may send Claude 10
+questions a minute and 100 a day (`ask_uses` table: who and when only); questions that never
+reach Claude don't count, failed calls do.
 
 Create a login (there's no self-signup; the password is prompted for, twice):
 

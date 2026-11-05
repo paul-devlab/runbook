@@ -8,6 +8,7 @@ fast, and need no API key.
 import os
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import anthropic
@@ -18,6 +19,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.ask import (
+    LIMITS,
     MAX_TOKENS,
     NOT_SET_UP,
     NOTHING_FOUND,
@@ -38,7 +40,7 @@ from app.config import Settings
 from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.main import app
-from app.models import Incident, Revision, Runbook, User
+from app.models import AskUse, Incident, Revision, Runbook, User
 from app.search import any_word_matches
 from app.tags import delete_unused_tags
 from app.users import create_user
@@ -244,6 +246,7 @@ def logged_in(client) -> Iterator[TestClient]:
         db.commit()
         user_id = user.id
     client.post("/login", data={"email": email, "password": PASSWORD, "csrf_token": CSRF})
+    client.user_id = user_id  # for the rate-limit tests
     yield client
     with Session(get_engine()) as db:
         db.execute(delete(Revision).where(Revision.edited_by_id == user_id))
@@ -324,3 +327,78 @@ def test_record_content_in_the_answer_is_sanitised(logged_in, fake_claude) -> No
 
     assert "<script>alert(1)" not in page
     assert 'href="https://evil.example"' not in page
+
+
+# --- Rate limits ----------------------------------------------------------------------
+
+
+def add_uses(user_id: int, count: int, ago: timedelta) -> None:
+    """Pretend the user asked `count` questions, `ago` in the past."""
+    with Session(get_engine()) as db:
+        when = datetime.now(UTC) - ago
+        db.add_all(AskUse(user_id=user_id, asked_at=when) for _ in range(count))
+        db.commit()
+
+
+def uses(user_id: int) -> int:
+    with Session(get_engine()) as db:
+        return db.query(AskUse).filter(AskUse.user_id == user_id).count()
+
+
+def test_limits_are_10_a_minute_and_100_a_day() -> None:
+    assert [(w, n) for w, n, _ in LIMITS] == [(timedelta(minutes=1), 10), (timedelta(days=1), 100)]
+
+
+@pytest.mark.integration
+def test_per_minute_limit(logged_in, fake_claude) -> None:
+    word = unique_word()
+    create_runbook(logged_in, f"Restart {word}")
+    add_uses(logged_in.user_id, 9, ago=timedelta(seconds=10))
+
+    assert ask(logged_in, word).status_code == 200  # the 10th is fine
+    page = ask(logged_in, word)  # the 11th isn't
+
+    assert page.status_code == 429
+    assert "10 questions in a minute" in page.text
+    assert len(fake_claude.calls) == 1  # Claude wasn't asked the 11th
+
+
+@pytest.mark.integration
+def test_per_day_limit(logged_in, fake_claude) -> None:
+    word = unique_word()
+    create_runbook(logged_in, f"Restart {word}")
+    add_uses(logged_in.user_id, 100, ago=timedelta(hours=2))
+
+    page = ask(logged_in, word)
+
+    assert page.status_code == 429
+    assert "100 questions in a day" in page.text
+    assert fake_claude.calls == []
+
+
+@pytest.mark.integration
+def test_old_uses_stop_counting_and_are_deleted(logged_in, fake_claude) -> None:
+    word = unique_word()
+    create_runbook(logged_in, f"Restart {word}")
+    add_uses(logged_in.user_id, 100, ago=timedelta(days=1, minutes=1))
+
+    assert ask(logged_in, word).status_code == 200
+    assert uses(logged_in.user_id) == 1  # the old 100 were tidied away
+
+
+@pytest.mark.integration
+def test_questions_that_never_reach_claude_are_free(logged_in, fake_claude) -> None:
+    ask(logged_in, f"What about {unique_word()}?")  # nothing matches
+    ask(logged_in, "   ")  # blank
+
+    assert uses(logged_in.user_id) == 0
+
+
+@pytest.mark.integration
+def test_failed_calls_still_count(logged_in, fake_claude) -> None:
+    word = unique_word()
+    create_runbook(logged_in, f"Restart {word}")
+    fake_claude.error = anthropic.APIConnectionError(request=_REQUEST)
+
+    assert ask(logged_in, word).status_code == 503
+    assert uses(logged_in.user_id) == 1
