@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <p class="small"><a href="/runbooks">← Runbooks</a></p>
+  <div class="page-head">
+    <h1>{{ runbook.title }}</h1>
+    <div class="actions">
+      <a class="button" href="/runbooks/{{ runbook.id }}/edit">Edit</a>
+      <a class="button secondary" href="/runbooks/{{ runbook.id }}/delete">Delete</a>
+    </div>
+  </div>
+
+  {% if runbook.summary %}<p class="lead">{{ runbook.summary }}</p>{% endif %}
+
+  <p class="muted small">
+    Created {{ runbook.created_at.strftime("%d %b %Y %H:%M") }} UTC by {{ runbook.created_by.display_name }}
+    · Updated {{ runbook.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ runbook.updated_by.display_name }}
+  </p>
+
+  {# Shown as plain text for now (escaped, line breaks kept). Markdown
+     rendering, with sanitising, arrives in its own PR. #}
+  {% if runbook.body_md %}
+    <div class="body-text">{{ runbook.body_md }}</div>
+  {% else %}
+    <p class="muted">No steps written yet.</p>
+  {% endif %}
+{% endblock %}

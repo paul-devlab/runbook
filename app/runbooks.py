@@ -1,0 +1,197 @@
+"""Runbook pages: list, view, create, edit and delete.
+
+URLs follow a common pattern for server-rendered apps:
+
+    GET  /runbooks              list
+    GET  /runbooks/new          empty form       POST /runbooks            create
+    GET  /runbooks/{id}         view
+    GET  /runbooks/{id}/edit    filled-in form   POST /runbooks/{id}/edit  save
+    GET  /runbooks/{id}/delete  "are you sure?"  POST /runbooks/{id}/delete
+
+Every POST answers with a redirect (303) to a page to GET, so pressing Refresh
+never submits a form twice ("Post/Redirect/Get"). Forms work without
+JavaScript; HTMX can make them smoother later.
+
+Any logged-in user can do everything (roles come in Phase 7).
+"""
+
+from dataclasses import dataclass, field
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.auth import require_user
+from app.csrf import verify_csrf
+from app.db import get_db
+from app.models import Runbook, User
+from app.web import render
+
+router = APIRouter(prefix="/runbooks")
+
+TITLE_MAX = 200
+SUMMARY_MAX = 500
+BODY_MAX = 100_000  # ~100 KB of Markdown is a very long runbook
+
+# FastAPI rejects anything longer with a 422 before our code runs. The forms
+# also set maxlength, so browsers stop people typing more in the first place.
+TitleField = Annotated[str, Form(max_length=TITLE_MAX)]
+SummaryField = Annotated[str, Form(max_length=SUMMARY_MAX)]
+BodyField = Annotated[str, Form(max_length=BODY_MAX)]
+
+CurrentUser = Annotated[User, Depends(require_user)]
+Db = Annotated[Session, Depends(get_db)]
+
+
+class RunbookNotFound(Exception):
+    """Raised for an unknown runbook id; app/main.py shows a 404 page."""
+
+
+@dataclass
+class RunbookForm:
+    """What was typed into the form, tidied up, plus any problems with it."""
+
+    title: str
+    summary: str
+    body_md: str
+    errors: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_input(cls, title: str, summary: str = "", body_md: str = "") -> "RunbookForm":
+        form = cls(
+            title=title.strip(),
+            summary=summary.strip(),
+            # Browsers send line breaks as \r\n; store plain \n.
+            body_md=body_md.replace("\r\n", "\n").strip(),
+        )
+        if not form.title:
+            form.errors.append("Give the runbook a title.")
+        return form
+
+
+def get_runbook(db: Session, runbook_id: int) -> Runbook:
+    runbook = db.get(Runbook, runbook_id)
+    if runbook is None:
+        raise RunbookNotFound
+    return runbook
+
+
+def form_page(
+    request: Request,
+    user: User,
+    form: RunbookForm,
+    *,
+    runbook: Runbook | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    """The create/edit form. `runbook` is None when creating."""
+    return render(
+        request,
+        "runbooks/form.html",
+        status_code=status_code,
+        page_title=f"Edit {runbook.title}" if runbook else "New runbook",
+        user=user,
+        form=form,
+        runbook=runbook,
+    )
+
+
+def see_other(url: str) -> RedirectResponse:
+    return RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("", response_class=HTMLResponse)
+def list_runbooks(request: Request, user: CurrentUser, db: Db) -> HTMLResponse:
+    runbooks = db.scalars(select(Runbook).order_by(Runbook.updated_at.desc())).all()
+    return render(
+        request, "runbooks/list.html", page_title="Runbooks", user=user, runbooks=runbooks
+    )
+
+
+@router.get("/new", response_class=HTMLResponse)
+def new_runbook(request: Request, user: CurrentUser) -> HTMLResponse:
+    return form_page(request, user, RunbookForm(title="", summary="", body_md=""))
+
+
+@router.post("", dependencies=[Depends(verify_csrf)])
+def create_runbook(
+    request: Request,
+    user: CurrentUser,
+    db: Db,
+    title: TitleField,
+    summary: SummaryField = "",
+    body_md: BodyField = "",
+) -> Response:
+    form = RunbookForm.from_input(title, summary, body_md)
+    if form.errors:
+        return form_page(request, user, form, status_code=status.HTTP_400_BAD_REQUEST)
+    runbook = Runbook(
+        title=form.title,
+        summary=form.summary,
+        body_md=form.body_md,
+        created_by_id=user.id,
+        updated_by_id=user.id,
+    )
+    db.add(runbook)
+    db.commit()
+    return see_other(f"/runbooks/{runbook.id}")
+
+
+@router.get("/{runbook_id}", response_class=HTMLResponse)
+def view_runbook(request: Request, runbook_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
+    runbook = get_runbook(db, runbook_id)
+    return render(
+        request, "runbooks/view.html", page_title=runbook.title, user=user, runbook=runbook
+    )
+
+
+@router.get("/{runbook_id}/edit", response_class=HTMLResponse)
+def edit_runbook(request: Request, runbook_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
+    runbook = get_runbook(db, runbook_id)
+    form = RunbookForm(title=runbook.title, summary=runbook.summary, body_md=runbook.body_md)
+    return form_page(request, user, form, runbook=runbook)
+
+
+@router.post("/{runbook_id}/edit", dependencies=[Depends(verify_csrf)])
+def update_runbook(
+    request: Request,
+    runbook_id: int,
+    user: CurrentUser,
+    db: Db,
+    title: TitleField,
+    summary: SummaryField = "",
+    body_md: BodyField = "",
+) -> Response:
+    runbook = get_runbook(db, runbook_id)
+    form = RunbookForm.from_input(title, summary, body_md)
+    if form.errors:
+        return form_page(
+            request, user, form, runbook=runbook, status_code=status.HTTP_400_BAD_REQUEST
+        )
+    runbook.title = form.title
+    runbook.summary = form.summary
+    runbook.body_md = form.body_md
+    runbook.updated_by_id = user.id
+    db.commit()
+    return see_other(f"/runbooks/{runbook.id}")
+
+
+@router.get("/{runbook_id}/delete", response_class=HTMLResponse)
+def confirm_delete(request: Request, runbook_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
+    runbook = get_runbook(db, runbook_id)
+    return render(
+        request,
+        "runbooks/delete.html",
+        page_title=f"Delete {runbook.title}",
+        user=user,
+        runbook=runbook,
+    )
+
+
+@router.post("/{runbook_id}/delete", dependencies=[Depends(verify_csrf)])
+def delete_runbook(runbook_id: int, user: CurrentUser, db: Db) -> Response:
+    db.delete(get_runbook(db, runbook_id))
+    db.commit()
+    return see_other("/runbooks")

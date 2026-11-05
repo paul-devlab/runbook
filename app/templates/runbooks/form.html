@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{# Used for both "new" (runbook is None) and "edit". `form` is a RunbookForm:
+   title, summary, body_md and any errors (see app/runbooks.py). #}
+
+{% block content %}
+  <h1>{% if runbook %}Edit runbook{% else %}New runbook{% endif %}</h1>
+
+  {% for error in form.errors %}
+    <p class="error" role="alert">{{ error }}</p>
+  {% endfor %}
+
+  <form method="post" action="{% if runbook %}/runbooks/{{ runbook.id }}/edit{% else %}/runbooks{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <label for="title">Title</label>
+    <input id="title" name="title" value="{{ form.title }}" maxlength="200" required autofocus>
+
+    <label for="summary">Summary <span class="muted">(optional, one or two sentences)</span></label>
+    <input id="summary" name="summary" value="{{ form.summary }}" maxlength="500">
+
+    <label for="body_md">Steps <span class="muted">(Markdown)</span></label>
+    <textarea id="body_md" name="body_md" rows="18" maxlength="100000">{{ form.body_md }}</textarea>
+
+    {# Security baseline (docs/SPEC.md §7): content goes to Claude later. #}
+    <p class="notice">Don't put passwords, keys or tokens in runbooks. Hostnames and IPs are fine.</p>
+
+    <div class="actions">
+      <button type="submit">{% if runbook %}Save changes{% else %}Create runbook{% endif %}</button>
+      <a href="{% if runbook %}/runbooks/{{ runbook.id }}{% else %}/runbooks{% endif %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

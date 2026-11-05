@@ -161,3 +161,104 @@ button[type="submit"]:not(.link-button) {
   border-radius: 6px;
   color: #cf222e;
 }
+
+textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+/* --- Pages with records ----------------------------------------------- */
+
+.small {
+  font-size: 0.875rem;
+}
+
+/* A heading with buttons on the right; wraps on narrow screens. */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.actions button[type="submit"] {
+  margin-top: 0;
+}
+
+form .actions {
+  margin-top: 1.25rem;
+}
+
+/* A link that looks like a button. */
+.button {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.button.secondary {
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+button[type="submit"].danger {
+  background: #cf222e;
+}
+
+.notice {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+
+.record-list {
+  list-style: none;
+  padding: 0;
+}
+
+.record-list li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.record-list li > a {
+  font-weight: 600;
+}
+
+.record-list p {
+  margin: 0.25rem 0 0;
+}
+
+/* Plain-text body: keep the author's line breaks; wrap long lines. */
+.body-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
