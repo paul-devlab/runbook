@@ -1,0 +1,31 @@
+<!doctype html>
+{# The shared layout. Pages fill in the blocks: {% block content %} etc. #}
+{# url_for(...).path gives "/static/app.css" (not "http://host/..."), which works behind
+   a proxy and over HTTPS without the app needing to know the outside address. #}
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if page_title %}{{ page_title }} · {% endif %}Runbook</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='app.css').path }}">
+    {# HTMX 2.0.11, served from our own app (vendored), not a CDN. #}
+    <script src="{{ url_for('static', path='vendor/htmx-2.0.11.min.js').path }}" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="{{ url_for('home').path }}">Runbook</a>
+      <nav aria-label="Main">
+        {# Links to runbooks, incidents and Ask arrive in Phase 3b+. #}
+        {% block nav %}{% endblock %}
+      </nav>
+    </header>
+
+    <main id="main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <p>Runbook · IT runbooks and incident knowledge base</p>
+    </footer>
+  </body>
+</html>

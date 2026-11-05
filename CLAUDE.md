@@ -103,6 +103,7 @@ pins, so bump them by hand, keeping duplicates in step:
 - `ghcr.io/astral-sh/uv` image in the `Dockerfile`'s `COPY --from=` line
 - uv `version:` in `ci.yml` (match the `uv` image in the `Dockerfile`)
 - `tonistiigi/binfmt` and `moby/buildkit` in `image.yml`
+- HTMX, vendored as `app/static/vendor/htmx-<version>.min.js` (check the npm `integrity` hash when updating, and update the `<script>` tag in `app/templates/base.html`)
 
 Kubernetes manifests: `deploy/staging/` (the app) and `deploy/argocd/` (Argo CD, a
 Kustomize overlay of the pinned upstream install). Cluster setup and access are in
