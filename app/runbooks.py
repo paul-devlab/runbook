@@ -27,6 +27,7 @@ from app.auth import require_user
 from app.csrf import verify_csrf
 from app.db import get_db
 from app.models import Runbook, Tag, User
+from app.revisions import delete_revisions, save_revision, snapshot_runbook
 from app.search import matches, tidy_query
 from app.tags import get_or_create_tags, normalise_tag, parse_tags
 from app.web import NotFound, render
@@ -209,6 +210,7 @@ def update_runbook(
     tags: TagsField = "",
 ) -> Response:
     runbook = get_runbook(db, runbook_id)
+    before = snapshot_runbook(runbook)  # for the history (app/revisions.py)
     form = RunbookForm.from_input(title, summary, body_md, tags)
     if form.errors:
         return form_page(
@@ -219,6 +221,7 @@ def update_runbook(
     runbook.body_md = form.body_md
     runbook.tags = get_or_create_tags(db, form.tag_names)
     runbook.updated_by_id = user.id
+    save_revision(db, "runbook", runbook.id, before, snapshot_runbook(runbook), user)
     db.commit()
     return see_other(f"/runbooks/{runbook.id}")
 
@@ -238,5 +241,6 @@ def confirm_delete(request: Request, runbook_id: int, user: CurrentUser, db: Db)
 @router.post("/{runbook_id}/delete", dependencies=[Depends(verify_csrf)])
 def delete_runbook(runbook_id: int, user: CurrentUser, db: Db) -> Response:
     db.delete(get_runbook(db, runbook_id))
+    delete_revisions(db, "runbook", runbook_id)
     db.commit()
     return see_other("/runbooks")

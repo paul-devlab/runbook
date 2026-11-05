@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.main import app
-from app.models import Incident, Runbook, User
+from app.models import Incident, Revision, Runbook, User
 from app.search import QUERY_MAX, search_vector_sql, tidy_query
 from app.tags import delete_unused_tags
 from app.users import create_user
@@ -65,6 +65,7 @@ def logged_in(client) -> Iterator[TestClient]:
     with Session(get_engine()) as db:
         db.execute(delete(Incident).where(Incident.created_by_id == user_id))
         db.execute(delete(Runbook).where(Runbook.created_by_id == user_id))
+        db.execute(delete(Revision).where(Revision.edited_by_id == user_id))
         db.execute(delete(User).where(User.id == user_id))
         delete_unused_tags(db)
         db.commit()

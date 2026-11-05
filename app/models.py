@@ -21,7 +21,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.search import search_vector_sql
@@ -255,3 +255,34 @@ incident_runbooks = Table(
         "runbook_id", ForeignKey("runbooks.id", ondelete="CASCADE"), primary_key=True, index=True
     ),
 )
+
+
+ENTITY_TYPES = ("runbook", "incident")
+
+
+class Revision(Base):
+    """A past version of a runbook or incident, saved when someone edits it.
+
+    `snapshot` holds the whole record as it was *before* the edit, as JSON
+    (JSONB = Postgres's binary JSON type). One table serves both record types,
+    so `entity_id` can't have a foreign key (a foreign key points at one
+    table). Instead, app/revisions.py deletes a record's revisions when the
+    record is deleted.
+    """
+
+    __tablename__ = "revisions"
+    __table_args__ = (
+        CheckConstraint(f"entity_type IN {ENTITY_TYPES}", name="entity_type_valid"),
+        # Finds one record's history quickly, newest first.
+        Index("ix_revisions_entity", "entity_type", "entity_id", "edited_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(20))
+    entity_id: Mapped[int]
+    snapshot: Mapped[dict] = mapped_column(JSONB)
+    # Who replaced this version, and when.
+    edited_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    edited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    edited_by: Mapped[User] = relationship(lazy="joined")

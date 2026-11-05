@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.main import app
-from app.models import Runbook, Tag, User
+from app.models import Revision, Runbook, Tag, User
 from app.runbooks import TITLE_MAX, RunbookForm
 from app.tags import delete_unused_tags
 from app.users import create_user
@@ -77,6 +77,7 @@ def user() -> Iterator[User]:
     yield new_user
     with Session(get_engine()) as db:
         db.execute(delete(Runbook).where(Runbook.created_by_id == new_user.id))
+        db.execute(delete(Revision).where(Revision.edited_by_id == new_user.id))
         db.execute(delete(User).where(User.id == new_user.id))
         delete_unused_tags(db)  # including the ones tests made up
         db.commit()

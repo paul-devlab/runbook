@@ -16,7 +16,7 @@ from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.incidents import IncidentForm, format_duration, parse_time
 from app.main import app
-from app.models import Incident, Runbook, Tag, User
+from app.models import Incident, Revision, Runbook, Tag, User
 from app.tags import delete_unused_tags
 from app.users import create_user
 
@@ -141,6 +141,7 @@ def user() -> Iterator[User]:
     with Session(get_engine()) as db:
         db.execute(delete(Incident).where(Incident.created_by_id == new_user.id))
         db.execute(delete(Runbook).where(Runbook.created_by_id == new_user.id))
+        db.execute(delete(Revision).where(Revision.edited_by_id == new_user.id))
         db.execute(delete(User).where(User.id == new_user.id))
         delete_unused_tags(db)
         db.commit()

@@ -14,6 +14,7 @@ from app.auth import LoginRequired
 from app.csrf import REJECTED, CsrfFailed, csrf_middleware
 from app.db import database_is_reachable
 from app.incidents import router as incidents_router
+from app.revisions import router as revisions_router
 from app.runbooks import router as runbooks_router
 from app.web import STATIC_DIR, NotFound, render
 from app.web import router as web_router
@@ -30,6 +31,7 @@ app.middleware("http")(csrf_middleware)
 app.include_router(web_router)
 app.include_router(runbooks_router)
 app.include_router(incidents_router)
+app.include_router(revisions_router)
 
 
 @app.exception_handler(LoginRequired)

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{# Versions of a runbook or incident: the current one, then past ones, newest first.
+   `kind` is "runbooks" or "incidents"; `versions` is a list of (revision, old snapshot). #}
+
+{% block content %}
+  <p class="small"><a href="/{{ kind }}/{{ record.id }}">← Back to “{{ record.title }}”</a></p>
+  <h1>History</h1>
+  <p class="muted">Every saved edit keeps the version before it. Old versions are read-only.</p>
+
+  <ul class="record-list">
+    <li>
+      <a href="/{{ kind }}/{{ record.id }}">Current version</a>
+      <p class="muted small">
+        Saved {{ record.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ record.updated_by.display_name }}
+      </p>
+    </li>
+    {% for revision, old in versions %}
+      <li>
+        <a href="/{{ kind }}/{{ record.id }}/history/{{ revision.id }}">{{ old.title }}</a>
+        <p class="muted small">
+          Saved {{ old.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ old.updated_by_name }}
+          · replaced {{ revision.edited_at.strftime("%d %b %Y %H:%M") }} UTC by {{ revision.edited_by.display_name }}
+        </p>
+      </li>
+    {% else %}
+      <li class="muted">No earlier versions: it hasn't been edited since it was created.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

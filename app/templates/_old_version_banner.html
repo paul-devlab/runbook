@@ -1,0 +1,7 @@
+{# Shown at the top of an old version, so nobody mistakes it for the current one. #}
+<p class="notice" role="status">
+  You're reading an old version, saved {{ old.updated_at.strftime("%d %b %Y %H:%M") }} UTC
+  by {{ old.updated_by_name }}.
+  <a href="{{ current_url }}">View the current version</a>
+  · <a href="{{ current_url }}/history">All versions</a>
+</p>
