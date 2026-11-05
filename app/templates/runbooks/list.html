@@ -2,9 +2,11 @@
 
 {% block content %}
   <div class="page-head">
-    <h1>Runbooks</h1>
+    <h1>Runbooks{% if tag %} tagged “{{ tag }}”{% endif %}</h1>
     <a class="button" href="/runbooks/new">New runbook</a>
   </div>
+
+  {% if tag %}<p class="small"><a href="/runbooks">Show all runbooks</a></p>{% endif %}
 
   {% if runbooks %}
     <ul class="record-list">
@@ -12,6 +14,7 @@
         <li>
           <a href="/runbooks/{{ runbook.id }}">{{ runbook.title }}</a>
           {% if runbook.summary %}<p>{{ runbook.summary }}</p>{% endif %}
+          {% with tags = runbook.tags %}{% include "runbooks/_tags.html" %}{% endwith %}
           <p class="muted small">
             Updated {{ runbook.updated_at.strftime("%d %b %Y %H:%M") }} UTC
             by {{ runbook.updated_by.display_name }}
@@ -19,6 +22,8 @@
         </li>
       {% endfor %}
     </ul>
+  {% elif tag %}
+    <p class="muted">No runbooks have this tag.</p>
   {% else %}
     <p class="muted">No runbooks yet. <a href="/runbooks/new">Write the first one.</a></p>
   {% endif %}

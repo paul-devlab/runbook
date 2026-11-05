@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.main import app
-from app.models import Runbook, User
+from app.models import Runbook, Tag, User, runbook_tags
 from app.runbooks import TITLE_MAX, RunbookForm
 from app.users import create_user
 
@@ -77,6 +77,8 @@ def user() -> Iterator[User]:
     with Session(get_engine()) as db:
         db.execute(delete(Runbook).where(Runbook.created_by_id == new_user.id))
         db.execute(delete(User).where(User.id == new_user.id))
+        # Tags no runbook uses any more (including the ones tests made up).
+        db.execute(delete(Tag).where(Tag.id.not_in(select(runbook_tags.c.tag_id))))
         db.commit()
 
 
@@ -225,3 +227,94 @@ def test_body_markdown_is_rendered_and_sanitised(logged_in) -> None:
 
     assert "<strong>bold</strong>" in page
     assert 'href="javascript' not in page  # shown as text, never as a link
+
+
+# --- Tags -------------------------------------------------------------------------
+
+
+def unique_tag() -> str:
+    """A tag name no other test (or real data) uses."""
+    return f"t-{uuid.uuid4().hex[:10]}"
+
+
+def tag_names(runbook_id: int) -> list[str]:
+    with Session(get_engine()) as db:
+        return [t.name for t in db.get(Runbook, runbook_id).tags]
+
+
+@pytest.mark.integration
+def test_tags_are_saved_tidied_and_shown(logged_in) -> None:
+    a, b = unique_tag(), unique_tag()
+    runbook_id = create(logged_in, "Tagged", tags=f"{a.upper()}, {b}, {a}")
+
+    assert tag_names(runbook_id) == sorted([a, b])
+    page = logged_in.get(f"/runbooks/{runbook_id}").text
+    assert f'href="/runbooks?tag={a}"' in page
+
+
+@pytest.mark.integration
+def test_two_runbooks_share_one_tag_row(logged_in) -> None:
+    shared = unique_tag()
+    create(logged_in, "One", tags=shared)
+    create(logged_in, "Two", tags=shared)
+
+    with Session(get_engine()) as db:
+        assert len(db.scalars(select(Tag).where(Tag.name == shared)).all()) == 1
+
+
+@pytest.mark.integration
+def test_list_can_be_filtered_by_tag(logged_in) -> None:
+    wanted = unique_tag()
+    tagged = create(logged_in, "Has the tag", tags=wanted)
+    other = create(logged_in, "Does not")
+
+    page = logged_in.get(f"/runbooks?tag={wanted.upper()}").text  # case doesn't matter
+
+    assert f"/runbooks/{tagged}" in page
+    assert f"/runbooks/{other}" not in page
+    assert "Show all runbooks" in page
+
+
+@pytest.mark.integration
+def test_unknown_tag_filter_shows_an_empty_list(logged_in) -> None:
+    page = logged_in.get(f"/runbooks?tag={unique_tag()}")
+
+    assert page.status_code == 200
+    assert "No runbooks have this tag." in page.text
+
+
+@pytest.mark.integration
+def test_editing_replaces_the_tags(logged_in) -> None:
+    old, new = unique_tag(), unique_tag()
+    runbook_id = create(logged_in, "Retag me", tags=old)
+
+    form = logged_in.get(f"/runbooks/{runbook_id}/edit").text
+    assert f'value="{old}"' in form  # current tags pre-filled
+
+    logged_in.post(
+        f"/runbooks/{runbook_id}/edit", data={"title": "Retag me", "tags": new, "csrf_token": CSRF}
+    )
+
+    assert tag_names(runbook_id) == [new]
+
+
+@pytest.mark.integration
+def test_bad_tag_is_rejected_and_input_kept(logged_in) -> None:
+    response = logged_in.post(
+        "/runbooks", data={"title": "Bad tags", "tags": "ok, bad!", "csrf_token": CSRF}
+    )
+
+    assert response.status_code == 400
+    assert "can only use letters" in response.text
+    assert 'value="ok, bad!"' in response.text
+
+
+@pytest.mark.integration
+def test_deleting_a_runbook_keeps_the_tag_for_others(logged_in) -> None:
+    shared = unique_tag()
+    doomed = create(logged_in, "Doomed", tags=shared)
+    survivor = create(logged_in, "Survivor", tags=shared)
+
+    logged_in.post(f"/runbooks/{doomed}/delete", data={"csrf_token": CSRF})
+
+    assert tag_names(survivor) == [shared]

@@ -7,7 +7,18 @@ generating migrations (`alembic revision --autogenerate`).
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, MetaData, String, Text, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    MetaData,
+    String,
+    Table,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Give constraints and indexes predictable names (e.g. "pk_users",
@@ -85,6 +96,31 @@ class LoginFailure(Base):
     )
 
 
+class Tag(Base):
+    """A label like "dns" or "on-call", shared by runbooks (and later incidents).
+
+    Names are normalised by app/tags.py (lowercase, no spaces), so "DNS" and
+    "dns" are one tag. The check constraint makes the database enforce it too.
+    """
+
+    __tablename__ = "tags"
+    __table_args__ = (CheckConstraint("name = lower(name)", name="name_lowercase"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(30), unique=True)
+
+
+# A "link table" for a many-to-many relationship: one row per (runbook, tag)
+# pair. A runbook has many tags and a tag is on many runbooks. Deleting either
+# side deletes its link rows (ON DELETE CASCADE); the other side is kept.
+runbook_tags = Table(
+    "runbook_tags",
+    Base.metadata,
+    Column("runbook_id", ForeignKey("runbooks.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+
 class Runbook(Base):
     """A how-to: the steps for a routine task or for fixing a known problem."""
 
@@ -112,3 +148,9 @@ class Runbook(Base):
     # loads the user in the same query as the runbook.
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
     updated_by: Mapped[User] = relationship(foreign_keys=[updated_by_id], lazy="joined")
+    # runbook.tags is a list of Tag objects, read and written through the
+    # runbook_tags table. "selectin" loads the tags for a whole list of
+    # runbooks in one extra query, not one query per runbook.
+    tags: Mapped[list[Tag]] = relationship(
+        secondary=runbook_tags, order_by=Tag.name, lazy="selectin"
+    )
