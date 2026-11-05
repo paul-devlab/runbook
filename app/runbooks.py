@@ -27,6 +27,7 @@ from app.auth import require_user
 from app.csrf import verify_csrf
 from app.db import get_db
 from app.models import Runbook, Tag, User
+from app.search import matches, tidy_query
 from app.tags import get_or_create_tags, normalise_tag, parse_tags
 from app.web import NotFound, render
 
@@ -119,22 +120,35 @@ def see_other(url: str) -> RedirectResponse:
 
 @router.get("", response_class=HTMLResponse)
 def list_runbooks(
-    request: Request, user: CurrentUser, db: Db, tag: str | None = None
+    request: Request,
+    user: CurrentUser,
+    db: Db,
+    tag: str | None = None,
+    q: str | None = None,
 ) -> HTMLResponse:
-    """All runbooks, or only those with ?tag=name."""
-    query = select(Runbook).order_by(Runbook.updated_at.desc())
+    """All runbooks, filtered by ?tag=name and/or searched with ?q=words.
+
+    Filters are plain URL parameters, so a filtered list can be bookmarked.
+    """
+    query = select(Runbook)
     tag = normalise_tag(tag)[:100] if tag else None
     if tag:
         # .any() = "has at least one tag with this name" (an EXISTS subquery).
         query = query.where(Runbook.tags.any(Tag.name == tag))
-    runbooks = db.scalars(query).all()
+    q = tidy_query(q)
+    if q:
+        condition, rank = matches(Runbook.search_vector, q)
+        query = query.where(condition).order_by(rank.desc())  # best match first
+    query = query.order_by(Runbook.updated_at.desc())
     return render(
         request,
         "runbooks/list.html",
-        page_title=f"Runbooks tagged {tag}" if tag else "Runbooks",
+        page_title="Runbooks",
         user=user,
-        runbooks=runbooks,
+        runbooks=db.scalars(query).all(),
         tag=tag,
+        q=q,
+        filtered=bool(tag or q),
     )
 
 

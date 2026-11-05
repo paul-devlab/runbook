@@ -21,6 +21,7 @@ from app.csrf import verify_csrf
 from app.db import get_db
 from app.models import SEVERITIES, STATUSES, Incident, Runbook, Tag, User
 from app.runbooks import see_other
+from app.search import matches, tidy_query
 from app.tags import get_or_create_tags, normalise_tag, parse_tags
 from app.web import NotFound, render, templates
 
@@ -245,20 +246,45 @@ def apply_form(
 
 @router.get("", response_class=HTMLResponse)
 def list_incidents(
-    request: Request, user: CurrentUser, db: Db, tag: str | None = None
+    request: Request,
+    user: CurrentUser,
+    db: Db,
+    tag: str | None = None,
+    q: str | None = None,
+    severity: str | None = None,
+    status: str | None = None,
 ) -> HTMLResponse:
-    """All incidents, most recent first, or only those with ?tag=name."""
-    query = select(Incident).order_by(Incident.started_at.desc(), Incident.id.desc())
+    """All incidents, most recent first. Filters combine (AND): ?severity=SEV1,
+    ?status=open, ?tag=name, ?q=words. Unknown severity/status values are
+    ignored, like "Any"."""
+    query = select(Incident)
     tag = normalise_tag(tag)[:100] if tag else None
     if tag:
         query = query.where(Incident.tags.any(Tag.name == tag))
+    severity = severity if severity in SEVERITIES else None
+    if severity:
+        query = query.where(Incident.severity == severity)
+    status = status if status in STATUSES else None
+    if status:
+        query = query.where(Incident.status == status)
+    q = tidy_query(q)
+    if q:
+        condition, rank = matches(Incident.search_vector, q)
+        query = query.where(condition).order_by(rank.desc())  # best match first
+    query = query.order_by(Incident.started_at.desc(), Incident.id.desc())
     return render(
         request,
         "incidents/list.html",
-        page_title=f"Incidents tagged {tag}" if tag else "Incidents",
+        page_title="Incidents",
         user=user,
         incidents=db.scalars(query).all(),
         tag=tag,
+        q=q,
+        severity=severity,
+        status=status,
+        severities=SEVERITIES,
+        statuses=STATUSES,
+        filtered=bool(tag or q or severity or status),
     )
 
 

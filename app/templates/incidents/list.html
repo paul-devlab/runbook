@@ -2,11 +2,41 @@
 
 {% block content %}
   <div class="page-head">
-    <h1>Incidents{% if tag %} tagged “{{ tag }}”{% endif %}</h1>
+    <h1>Incidents</h1>
     <a class="button" href="/incidents/new">New incident</a>
   </div>
 
-  {% if tag %}<p class="small"><a href="/incidents">Show all incidents</a></p>{% endif %}
+  {# method="get": filters go in the URL (/incidents?severity=SEV1&status=open), so
+     they can be bookmarked. Blank choices ("Any") are left out of the filter. #}
+  <form class="filters" method="get" action="/incidents" role="search">
+    <input type="search" name="q" value="{{ q }}" maxlength="200"
+           placeholder="Search incidents, e.g. dns timeout" aria-label="Search incidents">
+    <select name="severity" aria-label="Severity">
+      <option value="">Any severity</option>
+      {% for s in severities %}
+        <option value="{{ s }}" {% if s == severity %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" aria-label="Status">
+      <option value="">Any status</option>
+      {% for s in statuses %}
+        <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s | capitalize }}</option>
+      {% endfor %}
+    </select>
+    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+    <button type="submit">Filter</button>
+  </form>
+
+  {% if filtered %}
+    <p class="small muted">
+      {{ incidents | length }} {{ "incident" if incidents | length == 1 else "incidents" }}
+      {% if q %} matching “{{ q }}”{% endif %}
+      {% if severity %} · {{ severity }}{% endif %}
+      {% if status %} · {{ status }}{% endif %}
+      {% if tag %} · tagged “{{ tag }}”{% endif %}
+      · <a href="/incidents">Clear filters</a>
+    </p>
+  {% endif %}
 
   {% if incidents %}
     <ul class="record-list">
@@ -25,8 +55,8 @@
         </li>
       {% endfor %}
     </ul>
-  {% elif tag %}
-    <p class="muted">No incidents have this tag.</p>
+  {% elif filtered %}
+    <p class="muted">No incidents match.</p>
   {% else %}
     <p class="muted">No incidents recorded yet. <a href="/incidents/new">Record one.</a></p>
   {% endif %}
