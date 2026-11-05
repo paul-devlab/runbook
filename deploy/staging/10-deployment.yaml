@@ -1,0 +1,72 @@
+# A Deployment keeps the requested number of app containers (pods) running,
+# replaces them if they crash, and rolls out new versions one step at a time.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runbook
+  namespace: runbook
+  labels:
+    app.kubernetes.io/name: runbook
+    app.kubernetes.io/part-of: runbook
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3 # keep a few old versions around for `kubectl rollout undo`
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: runbook
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: runbook
+        app.kubernetes.io/part-of: runbook
+    spec:
+      # The app never talks to the Kubernetes API, so don't give it a token.
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999 # the "app" user created in the Dockerfile
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault # block unusual system calls
+      containers:
+        - name: app
+          # To deploy a new version: change this tag to the new main commit's
+          # sha-<full SHA> in a PR. Git is then the record of what's running.
+          image: ghcr.io/paul-devlab/runbook:sha-ec9c865d31f8fc869f1728c00f300b604327994c
+          ports:
+            - name: http
+              containerPort: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Requests: what the scheduler reserves for the pod. Limit: the most
+          # memory it may use before it's restarted. It uses ~85 MiB today.
+          # No CPU limit on purpose: it would throttle the app even when the
+          # Pi has CPU to spare.
+          resources:
+            requests:
+              cpu: 50m # 5% of one CPU core
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          # Startup: give the app up to 60s to start before the other checks begin.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          # Liveness: if /health stops answering, restart the container.
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          # Readiness: only send traffic while this passes. It should be /ready
+          # (which checks the database), but there's no database until Phase 3a
+          # and /ready would return 503 forever. Switch it to /ready then.
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3

@@ -1,0 +1,26 @@
+# An Ingress tells the ingress controller (Traefik, bundled with k3s) how to
+# route outside HTTP requests to a Service.
+#
+# No `host:` rule, so it matches requests for any hostname on port 80. That's
+# fine while Runbook is the only app on the cluster, and keeps the staging
+# hostname out of Git. Add a host rule when a second app or TLS arrives.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: runbook
+  namespace: runbook
+  labels:
+    app.kubernetes.io/name: runbook
+    app.kubernetes.io/part-of: runbook
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: runbook
+                port:
+                  name: http
