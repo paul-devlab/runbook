@@ -1,0 +1,23 @@
+# Sealed Secrets: lets us keep Kubernetes Secrets in Git, encrypted.
+#
+#   kubeseal (on your machine) encrypts a Secret with the controller's public key
+#   -> you commit the resulting SealedSecret
+#   -> Argo CD applies it
+#   -> the controller (in the cluster) decrypts it with its private key and
+#      creates the real Secret.
+#
+# Only this cluster's controller can decrypt them, so the private key must be
+# backed up (see docs/staging.md, "Sealed Secrets").
+#
+# controller.yaml is a verbatim copy of the official v0.40.0 release asset:
+#   https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.40.0/controller.yaml
+# Vendored (copied into Git) rather than fetched by URL, so it can only change
+# through a reviewed PR. To upgrade: download the new release's controller.yaml
+# over it, review the diff, and update the version here and in docs/staging.md.
+# Deployed by Argo CD (deploy/argocd/application-sealed-secrets.yaml).
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - controller.yaml # v0.40.0, installs into kube-system

@@ -194,6 +194,72 @@ manager, and delete the initial Secret so the old password isn't left lying arou
 kubectl -n argocd delete secret argocd-initial-admin-secret
 ```
 
+## 8. Sealed Secrets
+
+[Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) lets Kubernetes Secrets
+live in Git, **encrypted**. You encrypt ("seal") a Secret on your machine with `kubeseal`,
+commit the resulting `SealedSecret`, and the controller in the cluster decrypts it into a
+normal Secret. Only this cluster's controller holds the private key, so a SealedSecret in
+a public repo is safe to publish.
+
+The controller (`v0.40.0`, vendored in `deploy/sealed-secrets/`) is deployed by Argo CD
+(the `sealed-secrets` Application, created by the `kubectl apply -k deploy/argocd`
+command in section 7).
+
+### kubeseal on the dev machine
+
+```bash
+KUBESEAL_VERSION='0.40.0'
+cd /tmp
+base="https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}"
+curl -fLO "$base/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz"
+curl -fLO "$base/sealed-secrets_${KUBESEAL_VERSION}_checksums.txt"
+sha256sum --check --ignore-missing "sealed-secrets_${KUBESEAL_VERSION}_checksums.txt"   # must say: OK
+tar -xzf "kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" kubeseal
+install -m 0755 kubeseal ~/.local/bin/kubeseal
+rm kubeseal "kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" "sealed-secrets_${KUBESEAL_VERSION}_checksums.txt"
+kubeseal --version
+```
+
+### Sealing a secret
+
+Build the Secret locally with `--dry-run=client` (nothing is sent to the cluster), pipe it
+straight into `kubeseal`, and only the encrypted output touches the disk:
+
+```bash
+kubectl create secret generic <name> -n <namespace> \
+  --from-literal=<key>="$(openssl rand -base64 32)" \
+  --dry-run=client -o yaml \
+  | kubeseal --format yaml > deploy/staging/<file>.yaml
+```
+
+A SealedSecret is tied to its **name and namespace**: it can't be renamed or moved to
+another namespace without sealing it again.
+
+### Backing up the sealing key (do this!)
+
+If the cluster is rebuilt, a new controller makes a new key and **can't decrypt anything
+already in Git**. Keep a copy of the private key **outside the cluster and outside Git**,
+for example as an attachment in your password manager:
+
+```bash
+kubectl -n kube-system get secret -l sealedsecrets.bitnami.com/sealed-secrets-key -o yaml \
+  > sealed-secrets-key.yaml
+# store sealed-secrets-key.yaml in your password manager, then:
+shred -u sealed-secrets-key.yaml
+```
+
+The controller adds a new key every 30 days (older keys are kept, so old secrets still
+decrypt). New SealedSecrets use the newest key, so **repeat the backup after a renewal**.
+
+**Restoring** onto a rebuilt cluster: before Argo CD syncs the SealedSecrets, apply the
+backup, then restart the controller so it loads the key:
+
+```bash
+kubectl apply -f sealed-secrets-key.yaml
+kubectl -n kube-system rollout restart deploy/sealed-secrets-controller
+```
+
 ## Names: `.local` vs `.lan`
 
 - **`<staging-host>.local`** is announced by the Pi itself over **mDNS** (Avahi, on by
