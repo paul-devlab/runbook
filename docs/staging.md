@@ -50,10 +50,22 @@ sudo tee /etc/rancher/k3s/config.yaml >/dev/null <<'EOF'
 tls-san:
   - <staging-host>
   - <staging-host>.lan
+  - <staging-host>.local
 # The kubeconfig k3s writes is a cluster-admin credential: root-only (0600).
 write-kubeconfig-mode: "0600"
+# Pod network (Flannel) uses the wired card. k3s picks the node IP from the
+# interface with the default route when it starts, which is also eth0.
+flannel-iface: eth0
 EOF
 ```
+
+Use **Ethernet** (`eth0`), with Wi-Fi off: `sudo nmcli radio wifi off`. Two connections
+on the same network can send traffic out of the wrong one, and k3s records the node IP
+from whichever card had the default route when it started.
+
+No fixed IP is configured. If the Pi's address changes, run `sudo systemctl restart k3s`
+(or reboot) so k3s picks up the new one. Changes to `tls-san` also need a restart, which
+reissues the API certificate.
 
 ## 3. Install k3s (on the Pi)
 
@@ -123,11 +135,23 @@ The manifests in `deploy/staging/` are numbered so the Namespace is created firs
 ```bash
 kubectl apply -f deploy/staging/
 kubectl -n runbook rollout status deploy/runbook    # first pull on the Pi takes a few minutes
-curl http://<staging-host>.lan/health               # {"status":"ok"}
+curl http://<staging-host>.local/health             # {"status":"ok"}
 ```
 
 To roll out a new version, change the image tag in `deploy/staging/10-deployment.yaml`
 to the new `main` commit's `sha-<full SHA>` (in a PR), then apply again.
+
+## Names: `.local` vs `.lan`
+
+- **`<staging-host>.local`** is announced by the Pi itself over **mDNS** (Avahi, on by
+  default in Raspberry Pi OS), so it always matches the Pi's current address. Use it in
+  the **browser**: `http://<staging-host>.local/`. On an Ubuntu server install, resolving
+  `.local` names needs `sudo apt install libnss-mdns`; desktops and Macs have it built in.
+- **`<staging-host>.lan`** comes from the router's DNS, which can lag behind address
+  changes (it kept the old Wi-Fi address after the move to Ethernet). The **kubeconfig**
+  uses this name because **kubectl can't resolve `.local`**: it's a Go program built
+  without the system's name lookup, so it asks DNS directly and never reaches mDNS.
+  The router's IPv6 record for the Pi stayed correct, which kept kubectl working.
 
 ## Notes
 
@@ -135,6 +159,5 @@ to the new `main` commit's `sha-<full SHA>` (in a PR), then apply again.
   certificate in the kubeconfig, but keep the cluster off untrusted networks.
 - **Storage:** the Pi boots from an SD card. Before Postgres arrives (Phase 3a), move
   database storage to a USB SSD, because database writes wear SD cards out.
-- **Network:** Ethernet is more reliable than Wi-Fi for a cluster node.
 - **Uninstall:** `sudo /usr/local/bin/k3s-uninstall.sh` removes k3s and everything
   running in the cluster.
