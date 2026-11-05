@@ -15,10 +15,14 @@ from app.auth import LoginRequired
 from app.csrf import REJECTED, CsrfFailed, csrf_middleware
 from app.db import database_is_reachable
 from app.incidents import router as incidents_router
+from app.logs import request_log_middleware, setup_logging
 from app.revisions import router as revisions_router
 from app.runbooks import router as runbooks_router
 from app.web import STATIC_DIR, NotFound, render
 from app.web import router as web_router
+
+# Log as JSON, one object per line (app/logs.py).
+setup_logging()
 
 app = FastAPI(title="Runbook", version="0.1.0")
 
@@ -27,6 +31,10 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Refuse cross-site form posts and hand out CSRF tokens (app/csrf.py).
 app.middleware("http")(csrf_middleware)
+
+# Give each request an id and log one line per request (app/logs.py). Added
+# last, so it runs first and also sees requests the CSRF check refuses.
+app.middleware("http")(request_log_middleware)
 
 # HTML pages (app/web.py).
 app.include_router(web_router)
