@@ -20,6 +20,7 @@ from app.auth import require_user
 from app.csrf import verify_csrf
 from app.db import get_db
 from app.models import SEVERITIES, STATUSES, Incident, Runbook, Tag, User
+from app.revisions import delete_revisions, save_revision, snapshot_incident
 from app.runbooks import see_other
 from app.search import matches, tidy_query
 from app.tags import get_or_create_tags, normalise_tag, parse_tags
@@ -363,6 +364,7 @@ def update_incident(
     runbook_ids: RunbookIdsField = [],  # noqa: B006  (FastAPI copies defaults per request)
 ) -> Response:
     incident = get_incident(db, incident_id)
+    before = snapshot_incident(incident)  # for the history (app/revisions.py)
     form = IncidentForm.from_input(
         title=title,
         summary=summary,
@@ -379,6 +381,7 @@ def update_incident(
     if form.errors:
         return form_page(request, db, user, form, incident=incident, status_code=400)
     apply_form(db, incident, form, runbooks, user)
+    save_revision(db, "incident", incident.id, before, snapshot_incident(incident), user)
     db.commit()
     return see_other(f"/incidents/{incident.id}")
 
@@ -398,5 +401,6 @@ def confirm_delete(request: Request, incident_id: int, user: CurrentUser, db: Db
 @router.post("/{incident_id}/delete", dependencies=[Depends(verify_csrf)])
 def delete_incident(incident_id: int, user: CurrentUser, db: Db) -> Response:
     db.delete(get_incident(db, incident_id))
+    delete_revisions(db, "incident", incident_id)
     db.commit()
     return see_other("/incidents")

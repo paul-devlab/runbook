@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{# One past version of an incident (read-only). `old` is the snapshot (app/revisions.py). #}
+
+{% block content %}
+  {% with current_url = "/incidents/" ~ record.id %}{% include "_old_version_banner.html" %}{% endwith %}
+
+  <h1>{{ old.title }}</h1>
+  <p>{% with incident = old %}{% include "incidents/_badges.html" %}{% endwith %}</p>
+  {% if old.summary %}<p class="lead">{{ old.summary }}</p>{% endif %}
+  {% if old.tags %}<p class="small muted">Tags: {{ old.tags | join(", ") }}</p>{% endif %}
+
+  <dl class="facts">
+    <dt>Started</dt>
+    <dd>{{ old.started_at.strftime("%d %b %Y %H:%M") }} UTC</dd>
+    <dt>Resolved</dt>
+    <dd>{% if old.resolved_at %}{{ old.resolved_at.strftime("%d %b %Y %H:%M") }} UTC{% else %}Not yet{% endif %}</dd>
+  </dl>
+
+  <h2>Root cause</h2>
+  {% if old.root_cause_md %}<div class="prose">{{ old.root_cause_md | markdown }}</div>{% else %}<p class="muted">Not written.</p>{% endif %}
+
+  <h2>Resolution</h2>
+  {% if old.resolution_md %}<div class="prose">{{ old.resolution_md | markdown }}</div>{% else %}<p class="muted">Not written.</p>{% endif %}
+
+  <h2>Runbooks used</h2>
+  {% if old.runbooks %}
+    <ul>{% for r in old.runbooks %}<li>{{ r.title }}</li>{% endfor %}</ul>
+  {% else %}
+    <p class="muted">None linked.</p>
+  {% endif %}
+{% endblock %}

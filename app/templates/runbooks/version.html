@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{# One past version of a runbook (read-only). `old` is the snapshot (app/revisions.py). #}
+
+{% block content %}
+  {% with current_url = "/runbooks/" ~ record.id %}{% include "_old_version_banner.html" %}{% endwith %}
+
+  <h1>{{ old.title }}</h1>
+  {% if old.summary %}<p class="lead">{{ old.summary }}</p>{% endif %}
+  {% if old.tags %}<p class="small muted">Tags: {{ old.tags | join(", ") }}</p>{% endif %}
+
+  {# |markdown sanitises, as on the live page. Old content is just as untrusted. #}
+  {% if old.body_md %}
+    <div class="prose">{{ old.body_md | markdown }}</div>
+  {% else %}
+    <p class="muted">No steps written in this version.</p>
+  {% endif %}
+{% endblock %}
