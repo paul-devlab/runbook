@@ -1,0 +1,18 @@
+# A Service gives the app's pods one stable in-cluster address
+# (runbook.runbook.svc), even as pods come and go with new IPs.
+apiVersion: v1
+kind: Service
+metadata:
+  name: runbook
+  namespace: runbook
+  labels:
+    app.kubernetes.io/name: runbook
+    app.kubernetes.io/part-of: runbook
+spec:
+  type: ClusterIP # reachable inside the cluster only; the Ingress exposes it
+  selector:
+    app.kubernetes.io/name: runbook # send traffic to pods with this label
+  ports:
+    - name: http
+      port: 80
+      targetPort: http # the container port named "http" (8000)

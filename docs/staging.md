@@ -116,6 +116,19 @@ sed -i 's#https://127.0.0.1:6443#https://<staging-host>.lan:6443#' ~/.kube/confi
 kubectl get nodes                          # the Pi, STATUS: Ready
 ```
 
+## 6. Deploy the app (by hand, until Argo CD takes over)
+
+The manifests in `deploy/staging/` are numbered so the Namespace is created first:
+
+```bash
+kubectl apply -f deploy/staging/
+kubectl -n runbook rollout status deploy/runbook    # first pull on the Pi takes a few minutes
+curl http://<staging-host>.lan/health               # {"status":"ok"}
+```
+
+To roll out a new version, change the image tag in `deploy/staging/10-deployment.yaml`
+to the new `main` commit's `sha-<full SHA>` (in a PR), then apply again.
+
 ## Notes
 
 - **Port 6443** (the Kubernetes API) is reachable from the LAN. It needs the client

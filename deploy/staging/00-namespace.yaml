@@ -1,0 +1,13 @@
+# A namespace is a folder inside the cluster: everything for Runbook lives in
+# "runbook", separate from k3s's own system components in "kube-system".
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: runbook
+  labels:
+    app.kubernetes.io/part-of: runbook
+    # Pod Security Admission: Kubernetes rejects pods in this namespace that
+    # don't meet the "restricted" standard (non-root, no privilege escalation,
+    # all capabilities dropped, seccomp on). Our Deployment meets it.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
