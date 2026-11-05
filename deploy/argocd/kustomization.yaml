@@ -1,0 +1,50 @@
+# Argo CD for the staging cluster, slimmed down for a 4 GB Raspberry Pi.
+#
+# Kustomize (built into kubectl as `kubectl apply -k`) takes the official Argo CD
+# install manifest and applies our changes on top, without editing a copy of it.
+#
+# Install or upgrade (--server-side is needed: Argo CD's CRDs are too large for
+# the annotation that plain `kubectl apply` stores):
+#   kubectl apply --server-side -k deploy/argocd
+#
+# Upgrading: change the commit SHA and version below in a PR. Check the release
+# notes and security advisories first:
+#   https://github.com/argoproj/argo-cd/releases
+#   https://github.com/argoproj/argo-cd/security/advisories
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Everything below is installed into this namespace.
+namespace: argocd
+
+resources:
+  - namespace.yaml
+  # Official install manifest for v3.5.6, pinned by commit SHA (a tag could be moved).
+  - https://raw.githubusercontent.com/argoproj/argo-cd/c2b1e3017e2cec86b122172e861dcd026453ae44/manifests/install.yaml # v3.5.6
+
+# Remove components we don't use, saving RAM and image downloads on the Pi.
+# Their Services, ConfigMaps and RBAC stay behind; they're harmless without a
+# Deployment to use them.
+patches:
+  # Dex: single sign-on (GitHub, OIDC ...). We log in with the built-in admin user.
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: argocd-dex-server
+  # Notifications: Slack/email alerts on sync events. Not needed yet.
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: argocd-notifications-controller
+  # ApplicationSets: generate many Applications from templates. We have one app.
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: argocd-applicationset-controller

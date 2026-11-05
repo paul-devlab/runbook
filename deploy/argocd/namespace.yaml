@@ -1,0 +1,5 @@
+# Argo CD runs in its own namespace, separate from the apps it deploys.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
