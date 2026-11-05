@@ -16,8 +16,9 @@
     <header class="site-header">
       <a class="brand" href="{{ url_for('home').path }}">Runbook</a>
       <nav aria-label="Main">
-        {# Links to runbooks, incidents and Ask arrive in Phase 3b+. #}
-        {% block nav %}{% endblock %}
+        {% if user %}
+          <a href="/runbooks">Runbooks</a>
+        {% endif %}
       </nav>
       {% if user %}
         <div class="account">

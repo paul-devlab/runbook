@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{# A separate "are you sure?" page works without JavaScript. #}
+
+{% block content %}
+  <section class="card narrow">
+    <h1>Delete runbook?</h1>
+    <p>“{{ runbook.title }}” will be deleted. This can't be undone.</p>
+    <form method="post" action="/runbooks/{{ runbook.id }}/delete">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="actions">
+        <button type="submit" class="danger">Delete</button>
+        <a href="/runbooks/{{ runbook.id }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

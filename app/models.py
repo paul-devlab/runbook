@@ -7,8 +7,8 @@ generating migrations (`alembic revision --autogenerate`).
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, MetaData, String, func, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, MetaData, String, Text, func, text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Give constraints and indexes predictable names (e.g. "pk_users",
 # "fk_sessions_user_id_users"). Without this, Postgres invents names, which
@@ -83,3 +83,32 @@ class LoginFailure(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class Runbook(Base):
+    """A how-to: the steps for a routine task or for fixing a known problem."""
+
+    __tablename__ = "runbooks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    # One or two sentences, shown in lists.
+    summary: Mapped[str] = mapped_column(String(500), server_default="")
+    # The steps, written in Markdown. Text = no length limit in the database;
+    # the form limits it instead (see app/runbooks.py).
+    body_md: Mapped[str] = mapped_column(Text, server_default="")
+    # Users are deactivated, never deleted, so these always point somewhere.
+    # (ondelete defaults to RESTRICT-like "NO ACTION": deleting a user who
+    # wrote runbooks fails instead of silently losing the author.)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # onupdate: SQLAlchemy sets this to now() whenever the row is updated.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True
+    )
+
+    # Lets templates write runbook.created_by.display_name. lazy="joined"
+    # loads the user in the same query as the runbook.
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
+    updated_by: Mapped[User] = relationship(foreign_keys=[updated_by_id], lazy="joined")

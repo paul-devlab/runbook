@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Runbooks</h1>
+    <a class="button" href="/runbooks/new">New runbook</a>
+  </div>
+
+  {% if runbooks %}
+    <ul class="record-list">
+      {% for runbook in runbooks %}
+        <li>
+          <a href="/runbooks/{{ runbook.id }}">{{ runbook.title }}</a>
+          {% if runbook.summary %}<p>{{ runbook.summary }}</p>{% endif %}
+          <p class="muted small">
+            Updated {{ runbook.updated_at.strftime("%d %b %Y %H:%M") }} UTC
+            by {{ runbook.updated_by.display_name }}
+          </p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No runbooks yet. <a href="/runbooks/new">Write the first one.</a></p>
+  {% endif %}
+{% endblock %}
