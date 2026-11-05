@@ -13,9 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from app.auth import LoginRequired
 from app.csrf import REJECTED, CsrfFailed, csrf_middleware
 from app.db import database_is_reachable
-from app.runbooks import RunbookNotFound
+from app.incidents import router as incidents_router
 from app.runbooks import router as runbooks_router
-from app.web import STATIC_DIR, render
+from app.web import STATIC_DIR, NotFound, render
 from app.web import router as web_router
 
 app = FastAPI(title="Runbook", version="0.1.0")
@@ -29,6 +29,7 @@ app.middleware("http")(csrf_middleware)
 # HTML pages (app/web.py).
 app.include_router(web_router)
 app.include_router(runbooks_router)
+app.include_router(incidents_router)
 
 
 @app.exception_handler(LoginRequired)
@@ -43,7 +44,7 @@ def csrf_failed(request: Request, exc: CsrfFailed) -> PlainTextResponse:
     return PlainTextResponse(REJECTED, status_code=status.HTTP_403_FORBIDDEN)
 
 
-@app.exception_handler(RunbookNotFound)
+@app.exception_handler(NotFound)
 def not_found(request: Request, exc: Exception):
     """An id that doesn't exist (or was deleted): a friendly 404 page."""
     return render(request, "not_found.html", status_code=404, page_title="Not found")

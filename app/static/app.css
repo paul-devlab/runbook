@@ -132,7 +132,8 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   width: 100%;
   margin-top: 0.25rem;
   padding: 0.5rem;
@@ -314,4 +315,45 @@ label code {
   border: 1px solid var(--border);
   border-radius: 999px;
   text-decoration: none;
+}
+
+/* Two fields side by side; stacked on narrow screens. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0 1rem;
+}
+
+/* Severity and status labels. Colours work on light and dark backgrounds. */
+.badge {
+  display: inline-block;
+  margin-right: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.badge.sev1 { color: #cf222e; }
+.badge.sev2 { color: #d1600a; }
+.badge.sev3 { color: #9a6700; }
+.badge.sev4 { color: var(--muted); }
+.badge.status-open { color: #cf222e; }
+.badge.status-resolved { color: #1a7f37; }
+
+/* Label/value pairs, e.g. Started / Resolved. */
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 0;
 }
