@@ -17,4 +17,4 @@ resources:
 # commit's sha-<full SHA> in a PR. This is the only place the tag lives.
 images:
   - name: ghcr.io/paul-devlab/runbook
-    newTag: sha-b14ceeb1e6a7850122ff8a6f176e9c80c522eba7
+    newTag: sha-2aa3c40ce3e16a6e5521fd07bab7c733a2a13abd
