@@ -10,8 +10,10 @@ from datetime import datetime
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Computed,
     DateTime,
     ForeignKey,
+    Index,
     MetaData,
     String,
     Table,
@@ -19,7 +21,10 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from app.search import search_vector_sql
 
 # Give constraints and indexes predictable names (e.g. "pk_users",
 # "fk_sessions_user_id_users"). Without this, Postgres invents names, which
@@ -125,6 +130,8 @@ class Runbook(Base):
     """A how-to: the steps for a routine task or for fixing a known problem."""
 
     __tablename__ = "runbooks"
+    # GIN: the index type for "which rows contain these words?" (app/search.py).
+    __table_args__ = (Index("ix_runbooks_search_vector", "search_vector", postgresql_using="gin"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
@@ -133,6 +140,13 @@ class Runbook(Base):
     # The steps, written in Markdown. Text = no length limit in the database;
     # the form limits it instead (see app/runbooks.py).
     body_md: Mapped[str] = mapped_column(Text, server_default="")
+    # Words from the text, for full-text search. Computed by Postgres on every
+    # write ("GENERATED ALWAYS ... STORED"); the app never sets it.
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(search_vector_sql(title="A", summary="B", body_md="C"), persisted=True),
+        deferred=True,  # not loaded with the row: only the database needs it
+    )
     # Users are deactivated, never deleted, so these always point somewhere.
     # (ondelete defaults to RESTRICT-like "NO ACTION": deleting a user who
     # wrote runbooks fails instead of silently losing the author.)
@@ -190,6 +204,7 @@ class Incident(Base):
         CheckConstraint(
             "resolved_at IS NULL OR resolved_at >= started_at", name="resolved_after_start"
         ),
+        Index("ix_incidents_search_vector", "search_vector", postgresql_using="gin"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -201,6 +216,14 @@ class Incident(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     root_cause_md: Mapped[str] = mapped_column(Text, server_default="")
     resolution_md: Mapped[str] = mapped_column(Text, server_default="")
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            search_vector_sql(title="A", summary="B", root_cause_md="C", resolution_md="C"),
+            persisted=True,
+        ),
+        deferred=True,
+    )
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

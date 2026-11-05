@@ -272,7 +272,7 @@ def test_list_can_be_filtered_by_tag(logged_in) -> None:
 
     assert f"/runbooks/{tagged}" in page
     assert f"/runbooks/{other}" not in page
-    assert "Show all runbooks" in page
+    assert "Clear filters" in page
 
 
 @pytest.mark.integration
@@ -280,7 +280,7 @@ def test_unknown_tag_filter_shows_an_empty_list(logged_in) -> None:
     page = logged_in.get(f"/runbooks?tag={unique_tag()}")
 
     assert page.status_code == 200
-    assert "No runbooks have this tag." in page.text
+    assert "No runbooks match." in page.text
 
 
 @pytest.mark.integration

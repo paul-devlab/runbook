@@ -2,11 +2,26 @@
 
 {% block content %}
   <div class="page-head">
-    <h1>Runbooks{% if tag %} tagged “{{ tag }}”{% endif %}</h1>
+    <h1>Runbooks</h1>
     <a class="button" href="/runbooks/new">New runbook</a>
   </div>
 
-  {% if tag %}<p class="small"><a href="/runbooks">Show all runbooks</a></p>{% endif %}
+  {# method="get": filters go in the URL (/runbooks?q=dns), so they can be bookmarked. #}
+  <form class="filters" method="get" action="/runbooks" role="search">
+    <input type="search" name="q" value="{{ q }}" maxlength="200"
+           placeholder="Search runbooks, e.g. dns restart" aria-label="Search runbooks">
+    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+    <button type="submit">Search</button>
+  </form>
+
+  {% if filtered %}
+    <p class="small muted">
+      {{ runbooks | length }} {{ "runbook" if runbooks | length == 1 else "runbooks" }}
+      {% if q %} matching “{{ q }}”{% endif %}
+      {% if tag %} tagged “{{ tag }}”{% endif %}
+      · <a href="/runbooks">Clear filters</a>
+    </p>
+  {% endif %}
 
   {% if runbooks %}
     <ul class="record-list">
@@ -22,8 +37,8 @@
         </li>
       {% endfor %}
     </ul>
-  {% elif tag %}
-    <p class="muted">No runbooks have this tag.</p>
+  {% elif filtered %}
+    <p class="muted">No runbooks match.</p>
   {% else %}
     <p class="muted">No runbooks yet. <a href="/runbooks/new">Write the first one.</a></p>
   {% endif %}
