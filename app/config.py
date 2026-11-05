@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # How long a login lasts before you have to log in again.
     session_ttl_hours: int = 12
 
+    # Prometheus metrics (app/metrics.py) are served on this port; 0 turns them off.
+    metrics_port: int = 9000
+
     # Ask (app/ask.py). Without a key, the Ask page says it isn't set up.
     anthropic_api_key: SecretStr | None = None
     # Which Claude model answers. Changing it needs no code change.

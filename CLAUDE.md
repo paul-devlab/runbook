@@ -99,6 +99,13 @@ attached to every line logged during that request. Query strings, form data and 
 never logged; successful `/health` and `/ready` probes aren't logged. Example:
 `kubectl -n runbook logs deploy/runbook | jq 'select(.status >= 500)'`.
 
+Prometheus metrics (`app/metrics.py`) are served on their own port, `METRICS_PORT`
+(default 9000; locally http://127.0.0.1:9000/metrics), never on the website port, and the
+Ingress doesn't route to it. Counted: requests by route *template* and status, request
+duration, Ask outcomes, tokens and estimated cost (`PRICES` table: update it when models or
+prices change). Label values must come from a small fixed set: never put ids, paths or user
+input in a label.
+
 Create a login (there's no self-signup; the password is prompted for, twice):
 
 ```bash

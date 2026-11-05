@@ -199,6 +199,26 @@ def test_problems_become_friendly_messages(fake, problem) -> None:
     assert not answer.html
 
 
+def test_tokens_cost_and_outcomes_are_counted() -> None:
+    from prometheus_client import REGISTRY
+
+    def value(name, **labels):
+        return REGISTRY.get_sample_value(name, labels) or 0.0
+
+    before = (
+        value("runbook_ask_tokens_total", model=MODEL, direction="input"),
+        value("runbook_ask_cost_dollars_total", model=MODEL),
+        value("runbook_ask_questions_total", outcome="refused"),
+    )
+
+    ask_claude(FakeClaude(reply("", stop_reason="refusal")), MODEL, "q", SOURCES)
+
+    assert value("runbook_ask_tokens_total", model=MODEL, direction="input") == before[0] + 100
+    # 100 input + 20 output tokens at $4 / $20 per million (a refusal is still billed)
+    assert value("runbook_ask_cost_dollars_total", model=MODEL) == pytest.approx(before[1] + 0.0008)
+    assert value("runbook_ask_questions_total", outcome="refused") == before[2] + 1
+
+
 def test_cut_short_answers_are_flagged() -> None:
     answer = ask_claude(FakeClaude(reply("Partial", stop_reason="max_tokens")), MODEL, "q", SOURCES)
 

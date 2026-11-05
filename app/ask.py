@@ -45,6 +45,7 @@ from app.config import get_settings
 from app.csrf import verify_csrf
 from app.db import get_db
 from app.markdown import ALLOWED_ATTRIBUTES, ALLOWED_TAGS, render_markdown
+from app.metrics import ASK_QUESTIONS, record_ask_usage
 from app.models import AskUse, Incident, Runbook, User
 from app.search import any_word_matches
 from app.web import render
@@ -298,8 +299,14 @@ def ask_claude(
             type(error).__name__,
             getattr(error, "request_id", None),
         )
-        return Answer(problem=SPEND_LIMIT if _is_spend_limit(error) else UNAVAILABLE)
+        if _is_spend_limit(error):
+            ASK_QUESTIONS.labels("spend_limit").inc()
+            return Answer(problem=SPEND_LIMIT)
+        ASK_QUESTIONS.labels("error").inc()
+        return Answer(problem=UNAVAILABLE)
 
+    # Tokens are billed whatever the outcome, so count them first (app/metrics.py).
+    record_ask_usage(response.model, response.usage.input_tokens, response.usage.output_tokens)
     logger.info(
         "Ask answered by %s: %s input, %s output tokens, stop %s",
         response.model,
@@ -308,12 +315,15 @@ def ask_claude(
         response.stop_reason,
     )
     if response.stop_reason == "refusal":
+        ASK_QUESTIONS.labels("refused").inc()
         return Answer(problem=REFUSED)
     # The reply is a list of blocks; thinking blocks are skipped, text kept.
     text = "".join(block.text for block in response.content if block.type == "text").strip()
     cut_short = response.stop_reason == "max_tokens"
     if not text:
+        ASK_QUESTIONS.labels("error").inc()
         return Answer(problem=UNAVAILABLE)
+    ASK_QUESTIONS.labels("cut_short" if cut_short else "answered").inc()
     return Answer(html=render_answer(link_citations(text, sources)), cut_short=cut_short)
 
 
@@ -400,9 +410,11 @@ def ask(
         )
     sources = find_sources(db, question)
     if not sources:
+        ASK_QUESTIONS.labels("nothing_found").inc()
         return ask_page(request, user, question=question, problem=NOTHING_FOUND)
     over_limit = use_allowance(db, user)
     if over_limit:
+        ASK_QUESTIONS.labels("rate_limited").inc()
         return ask_page(
             request, user, status.HTTP_429_TOO_MANY_REQUESTS, question=question, problem=over_limit
         )

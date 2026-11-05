@@ -49,6 +49,10 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+            # Prometheus metrics (app/metrics.py). Not in the Service or Ingress,
+            # so only reachable from inside the cluster.
+            - name: metrics
+              containerPort: 9000
           # Database settings, read by app/config.py. The password comes from the
           # Secret the SealedSecret in 05-db-secret.sealed.yaml creates.
           env:
