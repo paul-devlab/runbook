@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session
 from app.csrf import CSRF_COOKIE
 from app.db import get_engine
 from app.main import app
-from app.models import Runbook, Tag, User, runbook_tags
+from app.models import Runbook, Tag, User
 from app.runbooks import TITLE_MAX, RunbookForm
+from app.tags import delete_unused_tags
 from app.users import create_user
 
 PASSWORD = "correct horse battery staple"  # noqa: S105  (fake test value)
@@ -77,8 +78,7 @@ def user() -> Iterator[User]:
     with Session(get_engine()) as db:
         db.execute(delete(Runbook).where(Runbook.created_by_id == new_user.id))
         db.execute(delete(User).where(User.id == new_user.id))
-        # Tags no runbook uses any more (including the ones tests made up).
-        db.execute(delete(Tag).where(Tag.id.not_in(select(runbook_tags.c.tag_id))))
+        delete_unused_tags(db)  # including the ones tests made up
         db.commit()
 
 

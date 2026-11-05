@@ -154,3 +154,55 @@ class Runbook(Base):
     tags: Mapped[list[Tag]] = relationship(
         secondary=runbook_tags, order_by=Tag.name, lazy="selectin"
     )
+
+
+SEVERITIES = ("SEV1", "SEV2", "SEV3", "SEV4")  # SEV1 = most severe
+STATUSES = ("open", "resolved")
+
+incident_tags = Table(
+    "incident_tags",
+    Base.metadata,
+    Column("incident_id", ForeignKey("incidents.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+
+class Incident(Base):
+    """Something that went wrong: what happened, why, and how it was fixed."""
+
+    __tablename__ = "incidents"
+    __table_args__ = (
+        # The database itself refuses values the app should never write, so a
+        # bug (or a hand-written SQL fix) can't store nonsense.
+        CheckConstraint(f"severity IN {SEVERITIES}", name="severity_valid"),
+        CheckConstraint(f"status IN {STATUSES}", name="status_valid"),
+        # Resolved incidents have a resolved time; open ones don't.
+        CheckConstraint(
+            "(status = 'resolved') = (resolved_at IS NOT NULL)", name="resolved_at_set"
+        ),
+        CheckConstraint(
+            "resolved_at IS NULL OR resolved_at >= started_at", name="resolved_after_start"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    summary: Mapped[str] = mapped_column(String(500), server_default="")
+    severity: Mapped[str] = mapped_column(String(4))
+    status: Mapped[str] = mapped_column(String(10))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    root_cause_md: Mapped[str] = mapped_column(Text, server_default="")
+    resolution_md: Mapped[str] = mapped_column(Text, server_default="")
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
+    updated_by: Mapped[User] = relationship(foreign_keys=[updated_by_id], lazy="joined")
+    tags: Mapped[list[Tag]] = relationship(
+        secondary=incident_tags, order_by=Tag.name, lazy="selectin"
+    )

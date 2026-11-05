@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <p class="small"><a href="/incidents">← Incidents</a></p>
+  <div class="page-head">
+    <h1>{{ incident.title }}</h1>
+    <div class="actions">
+      <a class="button" href="/incidents/{{ incident.id }}/edit">Edit</a>
+      <a class="button secondary" href="/incidents/{{ incident.id }}/delete">Delete</a>
+    </div>
+  </div>
+
+  <p>{% include "incidents/_badges.html" %}</p>
+  {% if incident.summary %}<p class="lead">{{ incident.summary }}</p>{% endif %}
+  {% with tags = incident.tags, tag_list = "/incidents" %}{% include "_tags.html" %}{% endwith %}
+
+  <dl class="facts">
+    <dt>Started</dt>
+    <dd>{{ incident.started_at.strftime("%d %b %Y %H:%M") }} UTC</dd>
+    <dt>Resolved</dt>
+    <dd>
+      {% if incident.resolved_at %}
+        {{ incident.resolved_at.strftime("%d %b %Y %H:%M") }} UTC
+        ({{ (incident.resolved_at - incident.started_at) | duration }})
+      {% else %}
+        Not yet
+      {% endif %}
+    </dd>
+  </dl>
+
+  {# |markdown renders and sanitises (app/markdown.py). Never use |safe here. #}
+  <h2>Root cause</h2>
+  {% if incident.root_cause_md %}
+    <div class="prose">{{ incident.root_cause_md | markdown }}</div>
+  {% else %}
+    <p class="muted">Not written yet.</p>
+  {% endif %}
+
+  <h2>Resolution</h2>
+  {% if incident.resolution_md %}
+    <div class="prose">{{ incident.resolution_md | markdown }}</div>
+  {% else %}
+    <p class="muted">Not written yet.</p>
+  {% endif %}
+
+  <p class="muted small">
+    Recorded {{ incident.created_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.created_by.display_name }}
+    · Updated {{ incident.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.updated_by.display_name }}
+  </p>
+{% endblock %}

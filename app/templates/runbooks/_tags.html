@@ -1,8 +1,0 @@
-{# Tag links; include with `tags` set. Each one filters the runbook list. #}
-{% if tags %}
-  <ul class="tags" aria-label="Tags">
-    {% for t in tags %}
-      <li><a href="/runbooks?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
-    {% endfor %}
-  </ul>
-{% endif %}

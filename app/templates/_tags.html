@@ -1,0 +1,9 @@
+{# Tag links. Include with `tags` set, and `tag_list` set to the list page the
+   links filter ("/runbooks" or "/incidents"). #}
+{% if tags %}
+  <ul class="tags" aria-label="Tags">
+    {% for t in tags %}
+      <li><a href="{{ tag_list }}?tag={{ t.name | urlencode }}">{{ t.name }}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}

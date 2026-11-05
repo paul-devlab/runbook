@@ -7,11 +7,11 @@ hyphens, duplicates removed, order kept.
 
 import re
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import Tag
+from app.models import Tag, incident_tags, runbook_tags
 
 TAG_MAX = 30
 MAX_TAGS = 10
@@ -41,6 +41,16 @@ def parse_tags(text: str) -> tuple[list[str], list[str]]:
     if len(names) > MAX_TAGS:
         errors.append(f"Use at most {MAX_TAGS} tags.")
     return names, errors
+
+
+def delete_unused_tags(db: Session) -> None:
+    """Delete tags that no runbook or incident uses any more. Doesn't commit."""
+    db.execute(
+        delete(Tag).where(
+            Tag.id.not_in(select(runbook_tags.c.tag_id)),
+            Tag.id.not_in(select(incident_tags.c.tag_id)),
+        )
+    )
 
 
 def get_or_create_tags(db: Session, names: list[str]) -> list[Tag]:

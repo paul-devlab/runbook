@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Incidents{% if tag %} tagged “{{ tag }}”{% endif %}</h1>
+    <a class="button" href="/incidents/new">New incident</a>
+  </div>
+
+  {% if tag %}<p class="small"><a href="/incidents">Show all incidents</a></p>{% endif %}
+
+  {% if incidents %}
+    <ul class="record-list">
+      {% for incident in incidents %}
+        <li>
+          {% include "incidents/_badges.html" %}
+          <a href="/incidents/{{ incident.id }}">{{ incident.title }}</a>
+          {% if incident.summary %}<p>{{ incident.summary }}</p>{% endif %}
+          {% with tags = incident.tags, tag_list = "/incidents" %}{% include "_tags.html" %}{% endwith %}
+          <p class="muted small">
+            Started {{ incident.started_at.strftime("%d %b %Y %H:%M") }} UTC
+            {% if incident.resolved_at %}
+              · resolved after {{ (incident.resolved_at - incident.started_at) | duration }}
+            {% endif %}
+          </p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif tag %}
+    <p class="muted">No incidents have this tag.</p>
+  {% else %}
+    <p class="muted">No incidents recorded yet. <a href="/incidents/new">Record one.</a></p>
+  {% endif %}
+{% endblock %}

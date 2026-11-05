@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{# Used for both "new" (incident is None) and "edit". `form` is an IncidentForm
+   (see app/incidents.py). #}
+
+{% block content %}
+  <h1>{% if incident %}Edit incident{% else %}New incident{% endif %}</h1>
+
+  {% for error in form.errors %}
+    <p class="error" role="alert">{{ error }}</p>
+  {% endfor %}
+
+  <form method="post" action="{% if incident %}/incidents/{{ incident.id }}/edit{% else %}/incidents{% endif %}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <label for="title">Title</label>
+    <input id="title" name="title" value="{{ form.title }}" maxlength="200" required autofocus>
+
+    <label for="summary">Summary <span class="muted">(optional, one or two sentences)</span></label>
+    <input id="summary" name="summary" value="{{ form.summary }}" maxlength="500">
+
+    <div class="field-row">
+      <div>
+        <label for="severity">Severity <span class="muted">(SEV1 = worst)</span></label>
+        <select id="severity" name="severity">
+          {% for s in severities %}
+            <option value="{{ s }}" {% if s == form.severity %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          {% for s in statuses %}
+            <option value="{{ s }}" {% if s == form.status %}selected{% endif %}>{{ s | capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div>
+        <label for="started_at">Started <span class="muted">(UTC)</span></label>
+        <input id="started_at" name="started_at" type="datetime-local" value="{{ form.started_at_text }}" required>
+      </div>
+      <div>
+        <label for="resolved_at">Resolved <span class="muted">(UTC; blank = now, if resolved)</span></label>
+        <input id="resolved_at" name="resolved_at" type="datetime-local" value="{{ form.resolved_at_text }}">
+      </div>
+    </div>
+
+    <label for="tags">Tags <span class="muted">(optional, separated by commas: dns, networking, on-call)</span></label>
+    <input id="tags" name="tags" value="{{ form.tags_text }}" maxlength="1000">
+
+    <label for="root_cause_md">Root cause <span class="muted">(Markdown)</span></label>
+    <textarea id="root_cause_md" name="root_cause_md" rows="8" maxlength="100000">{{ form.root_cause_md }}</textarea>
+
+    <label for="resolution_md">Resolution <span class="muted">(Markdown: what fixed it)</span></label>
+    <textarea id="resolution_md" name="resolution_md" rows="8" maxlength="100000">{{ form.resolution_md }}</textarea>
+
+    {# Security baseline (docs/SPEC.md §7): content goes to Claude later. #}
+    <p class="notice">Don't put passwords, keys or tokens in incidents. Hostnames and IPs are fine.</p>
+
+    <div class="actions">
+      <button type="submit">{% if incident %}Save changes{% else %}Record incident{% endif %}</button>
+      <a href="{% if incident %}/incidents/{{ incident.id }}{% else %}/incidents{% endif %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

@@ -28,7 +28,7 @@ from app.csrf import verify_csrf
 from app.db import get_db
 from app.models import Runbook, Tag, User
 from app.tags import get_or_create_tags, normalise_tag, parse_tags
-from app.web import render
+from app.web import NotFound, render
 
 router = APIRouter(prefix="/runbooks")
 
@@ -45,10 +45,6 @@ TagsField = Annotated[str, Form(max_length=1000)]  # the comma-separated text
 
 CurrentUser = Annotated[User, Depends(require_user)]
 Db = Annotated[Session, Depends(get_db)]
-
-
-class RunbookNotFound(Exception):
-    """Raised for an unknown runbook id; app/main.py shows a 404 page."""
 
 
 @dataclass
@@ -93,7 +89,7 @@ class RunbookForm:
 def get_runbook(db: Session, runbook_id: int) -> Runbook:
     runbook = db.get(Runbook, runbook_id)
     if runbook is None:
-        raise RunbookNotFound
+        raise NotFound
     return runbook
 
 

@@ -14,7 +14,7 @@
         <li>
           <a href="/runbooks/{{ runbook.id }}">{{ runbook.title }}</a>
           {% if runbook.summary %}<p>{{ runbook.summary }}</p>{% endif %}
-          {% with tags = runbook.tags %}{% include "runbooks/_tags.html" %}{% endwith %}
+          {% with tags = runbook.tags, tag_list = "/runbooks" %}{% include "_tags.html" %}{% endwith %}
           <p class="muted small">
             Updated {{ runbook.updated_at.strftime("%d %b %Y %H:%M") }} UTC
             by {{ runbook.updated_by.display_name }}

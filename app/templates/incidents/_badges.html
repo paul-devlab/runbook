@@ -1,0 +1,3 @@
+{# Severity and status labels; include with `incident` set. #}
+<span class="badge {{ incident.severity | lower }}">{{ incident.severity }}</span>
+<span class="badge status-{{ incident.status }}">{{ incident.status | capitalize }}</span>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card narrow">
+    <h1>Delete incident?</h1>
+    <p>“{{ incident.title }}” will be deleted. This can't be undone.</p>
+    <form method="post" action="/incidents/{{ incident.id }}/delete">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="actions">
+        <button type="submit" class="danger">Delete</button>
+        <a href="/incidents/{{ incident.id }}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

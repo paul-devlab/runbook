@@ -50,6 +50,11 @@ LOGIN_FAILED = "Email or password is incorrect."
 TOO_MANY_ATTEMPTS = "Too many failed login attempts. Wait 15 minutes and try again."
 
 
+class NotFound(Exception):
+    """Raise for an id that doesn't exist (or was deleted); app/main.py shows a
+    friendly 404 page."""
+
+
 def render(request: Request, template: str, status_code: int = 200, **context) -> HTMLResponse:
     return templates.TemplateResponse(request, template, context, status_code=status_code)
 
