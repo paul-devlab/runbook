@@ -154,6 +154,13 @@ class Runbook(Base):
     tags: Mapped[list[Tag]] = relationship(
         secondary=runbook_tags, order_by=Tag.name, lazy="selectin"
     )
+    # The incidents this runbook was used to fix, most recent first. The
+    # other side of Incident.runbooks ("back_populates" keeps both in step).
+    incidents: Mapped[list["Incident"]] = relationship(
+        secondary="incident_runbooks",
+        back_populates="runbooks",
+        order_by="Incident.started_at.desc()",
+    )
 
 
 SEVERITIES = ("SEV1", "SEV2", "SEV3", "SEV4")  # SEV1 = most severe
@@ -206,3 +213,22 @@ class Incident(Base):
     tags: Mapped[list[Tag]] = relationship(
         secondary=incident_tags, order_by=Tag.name, lazy="selectin"
     )
+    # Runbooks used to fix this incident ("we used runbook X").
+    runbooks: Mapped[list[Runbook]] = relationship(
+        secondary="incident_runbooks",
+        back_populates="incidents",
+        order_by=Runbook.title,
+        lazy="selectin",
+    )
+
+
+# Links incidents to the runbooks used to fix them (many-to-many, like tags).
+# Deleting an incident or a runbook removes only the link, never the other side.
+incident_runbooks = Table(
+    "incident_runbooks",
+    Base.metadata,
+    Column("incident_id", ForeignKey("incidents.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "runbook_id", ForeignKey("runbooks.id", ondelete="CASCADE"), primary_key=True, index=True
+    ),
+)

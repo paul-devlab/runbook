@@ -51,6 +51,20 @@
     <label for="tags">Tags <span class="muted">(optional, separated by commas: dns, networking, on-call)</span></label>
     <input id="tags" name="tags" value="{{ form.tags_text }}" maxlength="1000">
 
+    {# One checkbox per runbook; ticked ones arrive as runbook_ids=3&runbook_ids=7. #}
+    <fieldset class="checklist">
+      <legend>Runbooks used <span class="muted">(optional, tick any that helped fix it)</span></legend>
+      {% for r in all_runbooks %}
+        <label class="check">
+          <input type="checkbox" name="runbook_ids" value="{{ r.id }}"
+                 {% if r.id in form.runbook_ids %}checked{% endif %}>
+          {{ r.title }}
+        </label>
+      {% else %}
+        <p class="muted small">No runbooks yet.</p>
+      {% endfor %}
+    </fieldset>
+
     <label for="root_cause_md">Root cause <span class="muted">(Markdown)</span></label>
     <textarea id="root_cause_md" name="root_cause_md" rows="8" maxlength="100000">{{ form.root_cause_md }}</textarea>
 
