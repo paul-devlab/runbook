@@ -32,7 +32,7 @@ spec:
         - name: app
           # To deploy a new version: change this tag to the new main commit's
           # sha-<full SHA> in a PR. Git is then the record of what's running.
-          image: ghcr.io/paul-devlab/runbook:sha-ec9c865d31f8fc869f1728c00f300b604327994c
+          image: ghcr.io/paul-devlab/runbook:sha-49eda013fe67c8961d9ec164d210a30265cb387a
           ports:
             - name: http
               containerPort: 8000
