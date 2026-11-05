@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     postgres_host: str = "db"  # the Compose service name
     postgres_port: int = 5432
 
+    # Login sessions (app/auth.py).
+    # Secure cookies are only sent over HTTPS. Keep True anywhere with HTTPS;
+    # set SESSION_COOKIE_SECURE=false only for plain-HTTP setups (local Compose,
+    # staging until it has TLS), or the browser will never send the cookie back.
+    session_cookie_secure: bool = True
+    # How long a login lasts before you have to log in again.
+    session_ttl_hours: int = 12
+
     @property
     def database_url(self) -> URL:
         """SQLAlchemy connection URL for Postgres via the psycopg 3 driver.

@@ -32,6 +32,12 @@ def verify_password(password_hash: str, password: str) -> bool:
         return False
 
 
+def needs_rehash(password_hash: str) -> bool:
+    """True if a stored hash uses older settings than today's, so it should be
+    replaced (done at login, the only time we have the plain password)."""
+    return _hasher.check_needs_rehash(password_hash)
+
+
 def password_problem(password: str) -> str | None:
     """Return why `password` isn't acceptable, or None if it's fine."""
     if len(password) < MIN_PASSWORD_LENGTH:

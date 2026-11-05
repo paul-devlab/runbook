@@ -5,9 +5,11 @@ connections to Postgres and hands them out as needed. We create one per process.
 """
 
 import logging
+from collections.abc import Iterator
 from functools import lru_cache
 
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
@@ -24,6 +26,16 @@ def get_engine() -> Engine:
         # Give up quickly if Postgres is unreachable instead of hanging.
         connect_args={"connect_timeout": 3},
     )
+
+
+def get_db() -> Iterator[Session]:
+    """FastAPI dependency: a database session for one request, closed afterwards.
+
+    Use it as `db: Annotated[Session, Depends(get_db)]` in a route. Changes are
+    only saved if the route calls `db.commit()`.
+    """
+    with Session(get_engine()) as session:
+        yield session
 
 
 def database_is_reachable() -> bool:

@@ -18,6 +18,15 @@
         {# Links to runbooks, incidents and Ask arrive in Phase 3b+. #}
         {% block nav %}{% endblock %}
       </nav>
+      {% if user %}
+        <div class="account">
+          <span class="muted">{{ user.display_name }}</span>
+          {# Logout is a POST form, not a link (see app/web.py). #}
+          <form method="post" action="/logout">
+            <button type="submit" class="link-button">Log out</button>
+          </form>
+        </div>
+      {% endif %}
     </header>
 
     <main id="main">

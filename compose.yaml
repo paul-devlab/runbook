@@ -21,6 +21,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
       POSTGRES_HOST: db          # the db service's name on the Compose network
+      # Local dev is plain http://, where browsers won't send Secure cookies.
+      SESSION_COOKIE_SECURE: "false"
     volumes:
       # Mount source code read-only so edits show up without rebuilding.
       - ./app:/app/app:ro
