@@ -74,6 +74,12 @@ docker compose run --rm app alembic upgrade head   # apply database migrations
 docker compose down               # stop (add -v to also delete the database volume)
 ```
 
+Create a login (there's no self-signup; the password is prompted for, twice):
+
+```bash
+docker compose run --rm app python -m app.cli create-user --email you@example.com --name "Your Name"
+```
+
 Health endpoints: `/health` = process is alive; `/ready` = database is reachable (503 if not).
 
 Tests marked `@pytest.mark.integration` need a real Postgres. They run inside Compose and

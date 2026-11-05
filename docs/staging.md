@@ -295,6 +295,14 @@ Open a `psql` shell (it runs inside the pod, so no password or port-forward is n
 kubectl -n runbook exec -it postgres-0 -- psql -U runbook -d runbook
 ```
 
+**Creating a user** (runs inside the app's pod, so it uses the app's database settings;
+`-it` gives it a terminal for the password prompt):
+
+```bash
+kubectl -n runbook exec -it deploy/runbook -- \
+  python -m app.cli create-user --email you@example.com --name "Your Name"
+```
+
 **Rotating the password:** seal a new value over `05-db-secret.sealed.yaml` (section 8) and
 merge it. Postgres only reads `POSTGRES_PASSWORD` when it first creates the database, so
 also change it inside Postgres (`ALTER USER runbook PASSWORD '...'`) before restarting
