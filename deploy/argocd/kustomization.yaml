@@ -24,6 +24,7 @@ resources:
   - https://raw.githubusercontent.com/argoproj/argo-cd/c2b1e3017e2cec86b122172e861dcd026453ae44/manifests/install.yaml # v3.5.6
   # What Argo CD deploys (needs the CRDs above, which already exist on staging).
   - application-runbook-staging.yaml
+  - application-sealed-secrets.yaml
 
 # Remove components we don't use, saving RAM and image downloads on the Pi.
 # Their Services, ConfigMaps and RBAC stay behind; they're harmless without a

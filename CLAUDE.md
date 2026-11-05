@@ -102,6 +102,9 @@ Kubernetes manifests: `deploy/staging/` (the app) and `deploy/argocd/` (Argo CD,
 Kustomize overlay of the pinned upstream install). Cluster setup and access are in
 [docs/staging.md](docs/staging.md). Argo CD's version is pinned by commit SHA in
 `deploy/argocd/kustomization.yaml`; Dependabot doesn't update it.
+Secrets for the cluster go into Git **only as SealedSecrets** (encrypted with `kubeseal`,
+see docs/staging.md §8), never as plain `Secret` manifests. The Sealed Secrets controller
+(`deploy/sealed-secrets/controller.yaml`, vendored v0.40.0) is also a manual pin.
 
 New migration (no database needed; ruff runs on the new file automatically):
 
