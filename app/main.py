@@ -8,10 +8,19 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.db import database_is_reachable
+from app.web import STATIC_DIR
+from app.web import router as web_router
 
 app = FastAPI(title="Runbook", version="0.1.0")
+
+# CSS, JavaScript and images, served from app/static/ at /static/...
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# HTML pages (app/web.py).
+app.include_router(web_router)
 
 
 @app.get("/health")
