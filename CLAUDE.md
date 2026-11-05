@@ -92,6 +92,13 @@ the API. Questions and answers are never stored or logged. Each user may send Cl
 questions a minute and 100 a day (`ask_uses` table: who and when only); questions that never
 reach Claude don't count, failed calls do.
 
+Logs are JSON, one object per line on stdout (`app/logs.py`). Log with the standard
+`logging` module and put fields in `extra=`. Every request gets one line (method, path,
+status, duration_ms) and a `request_id`, also returned as the `X-Request-ID` header and
+attached to every line logged during that request. Query strings, form data and headers are
+never logged; successful `/health` and `/ready` probes aren't logged. Example:
+`kubectl -n runbook logs deploy/runbook | jq 'select(.status >= 500)'`.
+
 Create a login (there's no self-signup; the password is prompted for, twice):
 
 ```bash
