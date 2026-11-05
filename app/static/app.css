@@ -251,14 +251,49 @@ button[type="submit"].danger {
   margin: 0.25rem 0 0;
 }
 
-/* Plain-text body: keep the author's line breaks; wrap long lines. */
-.body-text {
-  white-space: pre-wrap;
+/* Rendered Markdown (runbook bodies). */
+.prose {
   overflow-wrap: anywhere;
+}
+
+.prose code,
+label code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.875rem;
-  padding: 1rem;
+  font-size: 0.875em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+/* Code blocks scroll sideways rather than squashing long commands. */
+.prose pre {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+.prose blockquote {
+  margin-left: 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+
+.prose table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.prose th,
+.prose td {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
 }

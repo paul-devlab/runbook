@@ -159,5 +159,6 @@ uv run alembic revision -m "describe the change"
 ## Security reminders
 
 - Record content and Claude's output are **untrusted**. Sanitise rendered Markdown, and never let record content act as instructions to Claude.
+- In templates, render Markdown only with `{{ text | markdown }}` (`app/markdown.py`: markdown-it-py, then nh3 allowlist). Never use `|safe` on record content.
 - Keep session cookies `HttpOnly`, `Secure`, `SameSite=Lax`; protect forms with CSRF tokens.
 - See the security baseline in [docs/SPEC.md §7](docs/SPEC.md#7-security-baseline-mvp).

@@ -18,7 +18,7 @@
     <label for="summary">Summary <span class="muted">(optional, one or two sentences)</span></label>
     <input id="summary" name="summary" value="{{ form.summary }}" maxlength="500">
 
-    <label for="body_md">Steps <span class="muted">(Markdown)</span></label>
+    <label for="body_md">Steps <span class="muted">(Markdown: <code># heading</code>, <code>1. step</code>, <code>`command`</code>, <code>```</code> code blocks)</span></label>
     <textarea id="body_md" name="body_md" rows="18" maxlength="100000">{{ form.body_md }}</textarea>
 
     {# Security baseline (docs/SPEC.md §7): content goes to Claude later. #}
