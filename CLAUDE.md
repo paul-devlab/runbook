@@ -98,6 +98,11 @@ pins, so bump them by hand, keeping duplicates in step:
 - uv `version:` in `ci.yml` (match the `uv` image in the `Dockerfile`)
 - `tonistiigi/binfmt` and `moby/buildkit` in `image.yml`
 
+Kubernetes manifests: `deploy/staging/` (the app) and `deploy/argocd/` (Argo CD, a
+Kustomize overlay of the pinned upstream install). Cluster setup and access are in
+[docs/staging.md](docs/staging.md). Argo CD's version is pinned by commit SHA in
+`deploy/argocd/kustomization.yaml`; Dependabot doesn't update it.
+
 New migration (no database needed; ruff runs on the new file automatically):
 
 ```bash

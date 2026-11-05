@@ -141,6 +141,48 @@ curl http://<staging-host>.local/health             # {"status":"ok"}
 To roll out a new version, change the image tag in `deploy/staging/10-deployment.yaml`
 to the new `main` commit's `sha-<full SHA>` (in a PR), then apply again.
 
+## 7. Argo CD
+
+[Argo CD](https://argo-cd.readthedocs.io/) watches this Git repository and keeps the
+cluster matching what's in it (GitOps). Its install lives in `deploy/argocd/`: the
+official manifest pinned by commit SHA, minus Dex (SSO), notifications and
+ApplicationSets, which we don't use. That leaves four workloads: `argocd-server` (UI and
+API), `argocd-repo-server` (reads Git and renders manifests), `argocd-application-controller`
+(compares and syncs) and `argocd-redis` (cache).
+
+Install or upgrade, from the dev machine:
+
+```bash
+kubectl apply --server-side -k deploy/argocd
+kubectl -n argocd rollout status deploy/argocd-server --timeout=600s
+kubectl -n argocd get pods                          # 4 pods, all Running
+```
+
+`--server-side` is required: Argo CD's CRDs are too big for the annotation plain
+`kubectl apply` stores.
+
+**Opening the UI.** It's not exposed on the LAN; reach it through a port-forward, a
+temporary tunnel from your machine into the cluster:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8080:443
+# then browse to https://localhost:8080 (self-signed certificate warning: expected)
+```
+
+**First login.** User `admin`. The initial password is generated at install time and
+stored in a Secret. Show it in **your own terminal only** (not in chat, tickets or logs):
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
+```
+
+Then change it in the UI (**User Info → Update Password**), store it in your password
+manager, and delete the initial Secret so the old password isn't left lying around:
+
+```bash
+kubectl -n argocd delete secret argocd-initial-admin-secret
+```
+
 ## Names: `.local` vs `.lan`
 
 - **`<staging-host>.local`** is announced by the Pi itself over **mDNS** (Avahi, on by
