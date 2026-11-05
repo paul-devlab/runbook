@@ -77,6 +77,11 @@ docker compose down               # stop (add -v to also delete the database vol
 Logging in: every page except `/login`, `/health`, `/ready` and `/static/` needs a login.
 Sessions are server-side (`sessions` table, token hashed) with an `HttpOnly`, `SameSite=Lax`
 cookie that is `Secure` unless `SESSION_COOKIE_SECURE=false` (plain-HTTP setups only).
+Every POST needs a CSRF token (`app/csrf.py`): forms include
+`<input type="hidden" name="csrf_token" value="{{ csrf_token }}">`, HTMX sends it as a
+header automatically, and each POST route needs `dependencies=[Depends(verify_csrf)]`
+(a test fails if one is missing). Cross-site POSTs are refused. Logins are rate-limited:
+5 failures per email or 20 per IP in 15 minutes gives a 429 (`login_failures` table).
 
 Create a login (there's no self-signup; the password is prompted for, twice):
 
