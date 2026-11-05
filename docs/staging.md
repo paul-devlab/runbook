@@ -128,18 +128,24 @@ sed -i 's#https://127.0.0.1:6443#https://<staging-host>.lan:6443#' ~/.kube/confi
 kubectl get nodes                          # the Pi, STATUS: Ready
 ```
 
-## 6. Deploy the app (by hand, until Argo CD takes over)
+## 6. Deploying the app
 
-The manifests in `deploy/staging/` are numbered so the Namespace is created first:
+**Argo CD deploys the app** (section 7): the `runbook-staging` Application keeps the
+`runbook` namespace matching `deploy/staging/` on `main`. To change staging, change those
+files **in a PR and merge it**. Argo CD notices within about 3 minutes and applies it.
+Don't `kubectl apply` or `kubectl edit` the app by hand: Argo CD's self-heal puts it back.
+
+To roll out a new version of the app, change the image tag in
+`deploy/staging/10-deployment.yaml` to the new `main` commit's `sha-<full SHA>`.
 
 ```bash
-kubectl apply -f deploy/staging/
-kubectl -n runbook rollout status deploy/runbook    # first pull on the Pi takes a few minutes
+kubectl -n argocd get application runbook-staging   # SYNC STATUS: Synced, HEALTH: Healthy
+kubectl -n runbook rollout status deploy/runbook
 curl http://<staging-host>.local/health             # {"status":"ok"}
 ```
 
-To roll out a new version, change the image tag in `deploy/staging/10-deployment.yaml`
-to the new `main` commit's `sha-<full SHA>` (in a PR), then apply again.
+Bootstrap only (a brand-new cluster before Argo CD is installed): `kubectl apply -f
+deploy/staging/`. The files are numbered so the Namespace is created first.
 
 ## 7. Argo CD
 
@@ -160,6 +166,11 @@ kubectl -n argocd get pods                          # 4 pods, all Running
 
 `--server-side` is required: Argo CD's CRDs are too big for the annotation plain
 `kubectl apply` stores.
+
+The same command also creates the **`runbook-staging` Application**
+(`deploy/argocd/application-runbook-staging.yaml`), which tells Argo CD what to deploy.
+Changes to `deploy/argocd/` itself are still applied by hand with that command. Argo CD
+doesn't manage its own install (yet).
 
 **Opening the UI.** It's not exposed on the LAN; reach it through a port-forward, a
 temporary tunnel from your machine into the cluster:

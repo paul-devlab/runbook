@@ -1,0 +1,34 @@
+# An Argo CD Application: "keep this part of the cluster matching this folder in Git".
+#
+# Argo CD checks the repo about every 3 minutes. When `deploy/staging/` on `main`
+# changes, it applies the change. So the way to deploy is: open a PR that changes
+# `deploy/staging/`, and merge it. No kubectl needed.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: runbook-staging
+  namespace: argocd # Applications live in Argo CD's own namespace
+  # If this Application is deleted, also delete what it deployed (rather than
+  # leaving it running unmanaged).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Public repo, so Argo CD needs no credentials to read it.
+    repoURL: https://github.com/paul-devlab/runbook.git
+    targetRevision: main
+    path: deploy/staging
+  destination:
+    server: https://kubernetes.default.svc # this cluster
+    namespace: runbook
+  syncPolicy:
+    automated:
+      # prune: something removed from Git is removed from the cluster too.
+      prune: true
+      # selfHeal: a change made by hand (kubectl edit ...) is put back to what
+      # Git says. Git is the only way to change staging.
+      selfHeal: true
+    syncOptions:
+      # Only apply the objects that differ, not everything on every sync.
+      - ApplyOutOfSyncOnly=true
