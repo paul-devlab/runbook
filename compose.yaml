@@ -23,6 +23,9 @@ services:
       POSTGRES_HOST: db          # the db service's name on the Compose network
       # Local dev is plain http://, where browsers won't send Secure cookies.
       SESSION_COOKIE_SECURE: "false"
+      # Ask (optional): blank means "not set up". Tests never use the real key.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
     volumes:
       # Mount source code read-only so edits show up without rebuilding.
       - ./app:/app/app:ro

@@ -74,6 +74,15 @@ spec:
             # Traefik runs. (Login rate limiting counts failures per IP.)
             - name: FORWARDED_ALLOW_IPS
               value: "10.42.0.0/16"
+            # Ask (app/ask.py): the Claude API key, from the SealedSecret in
+            # 07-anthropic-secret.sealed.yaml. The model can be changed here.
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: runbook-anthropic
+                  key: ANTHROPIC_API_KEY
+            - name: ANTHROPIC_MODEL
+              value: claude-opus-5-5
           # Avoid errors during rollouts. When a pod is told to stop, Kubernetes
           # also tells Traefik to stop sending it traffic, but both happen at
           # once and Traefik takes a moment to catch up. Without a pause, the

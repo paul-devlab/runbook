@@ -83,6 +83,13 @@ header automatically, and each POST route needs `dependencies=[Depends(verify_cs
 (a test fails if one is missing). Cross-site POSTs are refused. Logins are rate-limited:
 5 failures per email or 20 per IP in 15 minutes gives a 429 (`login_failures` table).
 
+Ask (`/ask`, `app/ask.py`) finds up to 8 matching records with full-text search and sends
+them to Claude as untrusted `<record>` blocks; with no matches Claude isn't called. Citations
+are linked on the server, only for records sent, and every other link in the answer is
+removed. Needs `ANTHROPIC_API_KEY` (staging: SealedSecret `runbook-anthropic`); the model is
+`ANTHROPIC_MODEL`. Tests replace the client (`get_claude`) with a fake, so they never call
+the API. Questions and answers are never stored or logged.
+
 Create a login (there's no self-signup; the password is prompted for, twice):
 
 ```bash

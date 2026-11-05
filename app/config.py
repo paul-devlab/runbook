@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     # How long a login lasts before you have to log in again.
     session_ttl_hours: int = 12
 
+    # Ask (app/ask.py). Without a key, the Ask page says it isn't set up.
+    anthropic_api_key: SecretStr | None = None
+    # Which Claude model answers. Changing it needs no code change.
+    anthropic_model: str = "claude-opus-5-5"
+
+    @property
+    def ask_enabled(self) -> bool:
+        return bool(self.anthropic_api_key and self.anthropic_api_key.get_secret_value())
+
     @property
     def database_url(self) -> URL:
         """SQLAlchemy connection URL for Postgres via the psycopg 3 driver.

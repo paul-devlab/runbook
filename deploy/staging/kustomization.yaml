@@ -6,6 +6,7 @@ kind: Kustomization
 resources:
   - 00-namespace.yaml
   - 05-db-secret.sealed.yaml
+  - 07-anthropic-secret.sealed.yaml
   - 06-postgres.yaml
   - 08-migrate-job.yaml
   - 10-deployment.yaml

@@ -406,3 +406,15 @@ label.check input {
 .filters button[type="submit"] {
   margin: 0;
 }
+
+/* Ask (app/ask.py): the question box uses the normal font, not code font. */
+.ask textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.answer {
+  margin-top: 1.5rem;
+  padding: 0 1rem 0.5rem;
+  border-left: 3px solid var(--accent);
+}
