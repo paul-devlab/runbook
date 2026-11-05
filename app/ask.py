@@ -115,7 +115,9 @@ def _cut(text: str, limit: int = RECORD_CHARS) -> str:
 
 
 # Anything that looks like the start or end of one of our own markers.
-_MARKER = re.compile(r"<\s*/?\s*(record|question)", re.IGNORECASE)
+# Written so there's only one way to match any text: "\s*/?\s*" could split a
+# run of spaces between its two \s* in many ways, and long runs would be slow.
+_MARKER = re.compile(r"<\s*(?:/\s*)?(record|question)", re.IGNORECASE)
 
 
 def neutralise(text: str) -> str:
@@ -185,9 +187,9 @@ def build_user_message(question: str, sources: list[Source]) -> str:
 
 # --- Turning Claude's answer into safe HTML ------------------------------------------
 
-_ONE_CITATION = r"(?:runbook|incident)\s*#?\s*\d+"
+_ONE_CITATION = r"(?:runbook|incident)\s*(?:#\s*)?\d+"
 _CITATIONS = re.compile(rf"\[\s*({_ONE_CITATION}(?:\s*[,;]\s*{_ONE_CITATION})*)\s*\]", re.I)
-_PARTS = re.compile(r"(runbook|incident)\s*#?\s*(\d+)", re.I)
+_PARTS = re.compile(r"(runbook|incident)\s*(?:#\s*)?(\d+)", re.I)
 
 
 def link_citations(answer: str, sources: list[Source]) -> str:

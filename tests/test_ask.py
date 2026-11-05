@@ -134,6 +134,17 @@ def test_records_cannot_fake_the_markers() -> None:
     assert message.endswith("<question>\nWhat now?\n</question>")
 
 
+def test_marker_check_is_fast_on_hostile_input() -> None:
+    """A long run of spaces after "<" once made the regex slow (CodeQL alert)."""
+    import time
+
+    start = time.perf_counter()
+    neutralise("<" + " " * 50_000 + "x")
+    link_citations("[runbook" + " " * 50_000 + "x", SOURCES)
+
+    assert time.perf_counter() - start < 0.5
+
+
 def test_fallback_is_only_requested_for_opus_5_models() -> None:
     assert _request_options("claude-opus-5-5")["fallbacks"] == "default"
     assert _request_options("claude-haiku-5-5") == {}
