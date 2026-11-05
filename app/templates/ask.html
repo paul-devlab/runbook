@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{# The Ask page (app/ask.py). After a question: `question`, and either `problem`
+   (a message instead of an answer) or `answer` (an Answer) plus `sources`. #}
+
+{% block content %}
+  <h1>Ask</h1>
+  <p class="muted">
+    Ask a question about past incidents or how to do something. Claude answers from your
+    runbooks and incidents only, and links to the ones it used.
+  </p>
+
+  {# A normal form POST: it works without JavaScript. Claude can take several seconds. #}
+  <form class="ask" method="post" action="/ask">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="question">Question</label>
+    <textarea id="question" name="question" rows="3" maxlength="{{ question_max }}" required
+              autofocus placeholder="How did we fix the DNS outage last time?">{{ question }}</textarea>
+    <p class="small muted">
+      Questions and answers aren't saved. The matching records are sent to Anthropic's
+      Claude API to write the answer.
+    </p>
+    <button type="submit">Ask</button>
+  </form>
+
+  {% if problem %}
+    <p class="notice" role="status">{{ problem }}</p>
+  {% endif %}
+
+  {% if answer and answer.html %}
+    <section class="answer" aria-labelledby="answer-heading">
+      <h2 id="answer-heading">Answer</h2>
+      {# answer.html is Claude's Markdown, sanitised in app/ask.py (render_answer). #}
+      <div class="prose">{{ answer.html }}</div>
+      {% if answer.cut_short %}
+        <p class="notice">This answer was cut short because it reached the length limit.</p>
+      {% endif %}
+      <p class="small muted">
+        Written by Claude (AI) from the records below. It can make mistakes: check the
+        linked records before acting on it.
+      </p>
+    </section>
+  {% endif %}
+
+  {% if sources %}
+    <section aria-labelledby="sources-heading">
+      <h2 id="sources-heading">Records Claude was given</h2>
+      <ul class="record-list">
+        {% for source in sources %}
+          <li>
+            <a href="{{ source.url }}">{{ source.title }}</a>
+            <p class="small muted">{{ source.kind }} {{ source.id }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

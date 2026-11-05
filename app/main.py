@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.ask import router as ask_router
 from app.auth import LoginRequired
 from app.csrf import REJECTED, CsrfFailed, csrf_middleware
 from app.db import database_is_reachable
@@ -32,6 +33,7 @@ app.include_router(web_router)
 app.include_router(runbooks_router)
 app.include_router(incidents_router)
 app.include_router(revisions_router)
+app.include_router(ask_router)
 
 
 @app.exception_handler(LoginRequired)

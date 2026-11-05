@@ -13,13 +13,17 @@ How it works:
 - `ts_rank` scores each match, so the best ones can be listed first (a title
   match beats a body match, thanks to the weights).
 
-Ask (Phase 3d) will use the same columns to find records for Claude.
+Ask (app/ask.py) uses the same columns, but with `any_word_matches`: a
+question is full sentences, and a record rarely contains *every* word of one.
 """
+
+import re
 
 from sqlalchemy import ColumnElement, func
 
 LANGUAGE = "english"  # how words are stemmed; also used in app/models.py
 QUERY_MAX = 200  # longer search text is cut off
+MAX_WORDS = 30  # Ask looks for at most this many words of a question
 
 
 def search_vector_sql(**weighted_columns: str) -> str:
@@ -41,4 +45,21 @@ def tidy_query(text: str | None) -> str:
 def matches(search_vector, text: str) -> tuple[ColumnElement[bool], ColumnElement[float]]:
     """A WHERE condition ("matches the search") and a relevance score to sort by."""
     query = func.websearch_to_tsquery(LANGUAGE, text)
+    return search_vector.op("@@")(query), func.ts_rank(search_vector, query)
+
+
+def any_word_matches(
+    search_vector, text: str
+) -> tuple[ColumnElement[bool], ColumnElement[float]] | None:
+    """Like `matches`, but a record matches if it has ANY of the words; records
+    with more (and rarer, title) matches rank higher. None if there are no words.
+
+    Only letters and digits are kept, so nothing typed can change the query's
+    meaning (`to_tsquery` treats characters like & | ! : as operators).
+    Common words ("how", "the") are dropped by Postgres itself.
+    """
+    words = re.findall(r"[^\W_]+", text)[:MAX_WORDS]
+    if not words:
+        return None
+    query = func.to_tsquery(LANGUAGE, " | ".join(words))
     return search_vector.op("@@")(query), func.ts_rank(search_vector, query)
