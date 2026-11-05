@@ -5,6 +5,8 @@ kind: Deployment
 metadata:
   name: runbook
   namespace: runbook
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # after Postgres (-1) and migrations (0)
   labels:
     app.kubernetes.io/name: runbook
     app.kubernetes.io/part-of: runbook
@@ -30,9 +32,8 @@ spec:
           type: RuntimeDefault # block unusual system calls
       containers:
         - name: app
-          # To deploy a new version: change this tag to the new main commit's
-          # sha-<full SHA> in a PR. Git is then the record of what's running.
-          image: ghcr.io/paul-devlab/runbook:sha-49eda013fe67c8961d9ec164d210a30265cb387a
+          # Tag set in kustomization.yaml (one place for the app and the migration Job).
+          image: ghcr.io/paul-devlab/runbook
           ports:
             - name: http
               containerPort: 8000

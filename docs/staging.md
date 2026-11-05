@@ -135,17 +135,32 @@ kubectl get nodes                          # the Pi, STATUS: Ready
 files **in a PR and merge it**. Argo CD notices within about 3 minutes and applies it.
 Don't `kubectl apply` or `kubectl edit` the app by hand: Argo CD's self-heal puts it back.
 
-To roll out a new version of the app, change the image tag in
-`deploy/staging/10-deployment.yaml` to the new `main` commit's `sha-<full SHA>`.
+To roll out a new version of the app, change `newTag` in `deploy/staging/kustomization.yaml`
+to the new `main` commit's `sha-<full SHA>`. That one tag is used by both the app and the
+migration Job.
+
+**Each sync runs in order** (Argo CD *sync waves*, waiting for each to be healthy):
+
+| Wave | What |
+|---|---|
+| -2 | Namespace |
+| -1 | Postgres password (SealedSecret), Postgres |
+| 0 | Migration Job: `alembic upgrade head` with the new image (`08-migrate-job.yaml`) |
+| 1 | The app |
+
+If the migration fails, the sync stops there and the **old app version keeps running**.
+The last migration Job is kept, so you can read its output:
 
 ```bash
 kubectl -n argocd get application runbook-staging   # SYNC STATUS: Synced, HEALTH: Healthy
+kubectl -n runbook logs job/runbook-migrate          # the last migration run
 kubectl -n runbook rollout status deploy/runbook
-curl http://<staging-host>.local/health             # {"status":"ok"}
+curl http://<staging-host>.local/ready              # {"status":"ready"}
 ```
 
-Bootstrap only (a brand-new cluster before Argo CD is installed): `kubectl apply -f
-deploy/staging/`. The files are numbered so the Namespace is created first.
+Bootstrap only (a brand-new cluster before Argo CD is installed): `kubectl apply -k
+deploy/staging`. Applied by hand, the waves and hook are ignored, so if the migration Job
+fails because Postgres isn't up yet, delete the Job and apply again.
 
 ## 7. Argo CD
 
