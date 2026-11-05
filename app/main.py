@@ -6,10 +6,11 @@ from here: `uvicorn app.main:app`.
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import LoginRequired
 from app.db import database_is_reachable
 from app.web import STATIC_DIR
 from app.web import router as web_router
@@ -21,6 +22,12 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # HTML pages (app/web.py).
 app.include_router(web_router)
+
+
+@app.exception_handler(LoginRequired)
+def redirect_to_login(request: Request, exc: LoginRequired) -> RedirectResponse:
+    """A page needed a login and there wasn't one: send the browser to /login."""
+    return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/health")

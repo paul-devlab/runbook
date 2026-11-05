@@ -51,6 +51,11 @@ spec:
                 secretKeyRef:
                   name: runbook-db
                   key: POSTGRES_PASSWORD
+            # Staging is plain HTTP for now, and browsers never send Secure
+            # cookies over HTTP, so logins would silently fail. Remove this
+            # (back to the safe default, true) once staging has TLS.
+            - name: SESSION_COOKIE_SECURE
+              value: "false"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

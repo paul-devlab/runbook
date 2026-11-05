@@ -8,13 +8,17 @@ from app.web import templates
 client = TestClient(app)
 
 
-def test_home_page_renders_the_layout() -> None:
-    response = client.get("/")
+def test_pages_use_the_shared_layout(monkeypatch) -> None:
+    # /login is public; with no session cookie it never queries the database,
+    # but it does need the settings to exist.
+    for name in ("POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"):
+        monkeypatch.setenv(name, "unused")
+    response = client.get("/login")
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     html = response.text
-    assert "<title>Home · Runbook</title>" in html
+    assert "<title>Log in · Runbook</title>" in html
     assert 'href="/static/app.css"' in html  # a path, not a full URL
     assert "/static/vendor/htmx-2.0.11.min.js" in html
     assert '<main id="main">' in html

@@ -74,6 +74,10 @@ docker compose run --rm app alembic upgrade head   # apply database migrations
 docker compose down               # stop (add -v to also delete the database volume)
 ```
 
+Logging in: every page except `/login`, `/health`, `/ready` and `/static/` needs a login.
+Sessions are server-side (`sessions` table, token hashed) with an `HttpOnly`, `SameSite=Lax`
+cookie that is `Secure` unless `SESSION_COOKIE_SECURE=false` (plain-HTTP setups only).
+
 Create a login (there's no self-signup; the password is prompted for, twice):
 
 ```bash
