@@ -106,6 +106,10 @@ duration, Ask outcomes, tokens and estimated cost (`PRICES` table: update it whe
 prices change). Label values must come from a small fixed set: never put ids, paths or user
 input in a label.
 
+Prometheus runs on staging (`monitoring` namespace; docs/staging.md §10). Settings are in
+`deploy/monitoring/prometheus-values.yaml`; the chart version is pinned in
+`deploy/argocd/application-prometheus.yaml` (a manual pin; Dependabot doesn't update it).
+
 Create a login (there's no self-signup; the password is prompted for, twice):
 
 ```bash

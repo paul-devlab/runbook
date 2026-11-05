@@ -25,6 +25,7 @@ resources:
   # What Argo CD deploys (needs the CRDs above, which already exist on staging).
   - application-runbook-staging.yaml
   - application-sealed-secrets.yaml
+  - application-prometheus.yaml
 
 # Remove components we don't use, saving RAM and image downloads on the Pi.
 # Their Services, ConfigMaps and RBAC stay behind; they're harmless without a

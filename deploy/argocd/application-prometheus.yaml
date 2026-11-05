@@ -1,0 +1,39 @@
+# Argo CD deploys Prometheus (metrics storage) into the "monitoring" namespace.
+#
+# Two sources:
+#   1. the chart itself, from the official Helm repository, pinned to a version;
+#   2. our settings, deploy/monitoring/prometheus-values.yaml in this repo ($values).
+# So changing a setting is a normal PR to deploy/monitoring/. Changing the chart
+# version means editing targetRevision below and re-applying deploy/argocd.
+# Upgrading: read the chart's release notes first:
+#   https://github.com/prometheus-community/helm-charts/releases?q=prometheus-29
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus
+      targetRevision: 29.39.0 # Prometheus v3.15.1
+      helm:
+        releaseName: prometheus
+        valueFiles:
+          - $values/deploy/monitoring/prometheus-values.yaml
+    - repoURL: https://github.com/paul-devlab/runbook.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

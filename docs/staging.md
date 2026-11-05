@@ -17,6 +17,7 @@ Below, `<staging-host>` means the Pi's hostname and `<staging-user>` your login 
 |---|---|---|
 | k3s | `v1.37.1+k3s1` | Current stable minor (1.37); the newer v1.37.2 was a day old and had no security fixes |
 | kubectl (on the dev machine) | `v1.37.1` | Same minor as the cluster. kubectl supports one minor version either side |
+| Prometheus Helm chart | `29.39.0` (Prometheus v3.15.1) | Newest chart at least 7 days old (new ones ship every day or two) |
 
 To upgrade, change the version here first (in a PR), then rerun the install with the new
 version. It upgrades in place.
@@ -307,6 +308,26 @@ kubectl -n runbook exec -it deploy/runbook -- \
 merge it. Postgres only reads `POSTGRES_PASSWORD` when it first creates the database, so
 also change it inside Postgres (`ALTER USER runbook PASSWORD '...'`) before restarting
 the app.
+
+## 10. Monitoring (Prometheus)
+
+Prometheus stores metrics over time. It runs in the `monitoring` namespace, deployed by the
+`prometheus` Argo CD Application (`deploy/argocd/application-prometheus.yaml`) from the
+official Helm chart, with our settings in `deploy/monitoring/prometheus-values.yaml`.
+
+- **Scraped every 30 s:** the app's pods (annotated `prometheus.io/scrape`, port 9000),
+  node-exporter (the Pi's CPU, memory, disk, temperature), per-container CPU/memory, and
+  Prometheus itself. Kept for 7 days or 1.5 GB, whichever comes first.
+- **Not exposed** outside the cluster. To look at it, forward a port and open
+  http://127.0.0.1:9090 (Status → Targets shows what's scraped and whether it's up):
+
+  ```bash
+  kubectl -n monitoring port-forward svc/prometheus-server 9090:80
+  ```
+
+- **Change a setting:** edit the values file in a PR; Argo CD applies it after merge.
+- **Upgrade the chart:** change `targetRevision` in the Application, then
+  `kubectl apply --server-side -k deploy/argocd` (that folder isn't synced by Argo CD itself).
 
 ## Names: `.local` vs `.lan`
 

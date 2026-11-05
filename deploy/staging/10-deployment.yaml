@@ -29,6 +29,10 @@ spec:
       labels:
         app.kubernetes.io/name: runbook
         app.kubernetes.io/part-of: runbook
+      # Tell Prometheus (deploy/monitoring/) to scrape this pod's metrics port.
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
     spec:
       # The app never talks to the Kubernetes API, so don't give it a token.
       automountServiceAccountToken: false

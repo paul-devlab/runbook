@@ -1,0 +1,78 @@
+# Settings for the official Prometheus Helm chart (prometheus-community/prometheus),
+# installed by the Argo CD Application in deploy/argocd/application-prometheus.yaml.
+#
+# A Helm chart is a packaged, configurable set of Kubernetes manifests. This file
+# only lists what we change from the chart's defaults. Argo CD renders the chart
+# with these values and keeps the cluster matching it, like deploy/staging/.
+# Edit this file in a PR to change Prometheus; no kubectl needed.
+#
+# Sized for a 4 GB Raspberry Pi: the server and node-exporter only, 7 days of data.
+
+server:
+  global:
+    scrape_interval: 30s # fetch every target's /metrics this often
+    evaluation_interval: 30s
+  retention: 7d
+  # Also stop at this size, so the 2 GB volume never fills up.
+  retentionSize: 1500MB
+  persistentVolume:
+    enabled: true
+    size: 2Gi # k3s's local-path storage, on the Pi's SD card
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    # The most it may use; past this Kubernetes restarts it rather than let it
+    # squeeze the app and Postgres.
+    limits:
+      memory: 768Mi
+
+# Parts of the chart we don't use.
+alertmanager:
+  enabled: false # alerts will be sent by Grafana (Phase 4, later PR)
+kube-state-metrics:
+  enabled: false # Kubernetes object stats; not needed yet
+prometheus-pushgateway:
+  enabled: false # for short batch jobs; we have none
+
+# node-exporter: the Pi's own CPU, memory, disk, network and temperature.
+prometheus-node-exporter:
+  # Default is to use the Pi's network directly, which would publish these stats
+  # on the LAN at port 9100. Off: only reachable inside the cluster. CPU, memory,
+  # disk and temperature still come from the host's /proc and /sys (mounted
+  # read-only); only the Pi's own network-interface stats are lost.
+  hostNetwork: false
+  service:
+    annotations:
+      prometheus.io/scrape: "true" # picked up by the kubernetes-service-endpoints job
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+# What to scrape. The chart has a list of jobs; we turn off the ones we don't need.
+scrapeConfigs:
+  # Kept: "prometheus" (itself), "kubernetes-service-endpoints" (services
+  # annotated prometheus.io/scrape, i.e. node-exporter) and "kubernetes-pods"
+  # (pods annotated prometheus.io/scrape, i.e. Runbook: deploy/staging/10-deployment.yaml).
+  kubernetes-nodes-cadvisor:
+    # Per-container CPU and memory, from the kubelet. Kept, but only these two
+    # metrics: enough to see what each pod uses, without thousands of series.
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        action: keep
+        regex: container_cpu_usage_seconds_total|container_memory_working_set_bytes
+  kubernetes-api-servers:
+    enabled: false
+  kubernetes-nodes:
+    enabled: false
+  kubernetes-service-endpoints-slow:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  kubernetes-services:
+    enabled: false
+  kubernetes-pods-slow:
+    enabled: false
