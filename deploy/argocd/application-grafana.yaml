@@ -1,0 +1,43 @@
+# Argo CD deploys Grafana (dashboards) into the "monitoring" namespace.
+#
+# Three sources:
+#   1. the chart, from the grafana-community Helm repository, pinned to a version;
+#   2. our settings, deploy/monitoring/grafana-values.yaml in this repo ($values);
+#   3. deploy/monitoring/grafana/: the dashboards and the admin login (SealedSecret).
+# Changing settings or dashboards is a normal PR. Changing the chart version means
+# editing targetRevision below and re-applying this file.
+# Upgrading: read the release notes first:
+#   https://github.com/grafana-community/helm-charts/releases?q=grafana-14
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: grafana
+      targetRevision: 14.2.0 # Grafana 13.3.0
+      helm:
+        releaseName: grafana
+        valueFiles:
+          - $values/deploy/monitoring/grafana-values.yaml
+    - repoURL: https://github.com/paul-devlab/runbook.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/paul-devlab/runbook.git
+      targetRevision: main
+      path: deploy/monitoring/grafana
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

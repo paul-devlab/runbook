@@ -18,6 +18,7 @@ Below, `<staging-host>` means the Pi's hostname and `<staging-user>` your login 
 | k3s | `v1.37.1+k3s1` | Current stable minor (1.37); the newer v1.37.2 was a day old and had no security fixes |
 | kubectl (on the dev machine) | `v1.37.1` | Same minor as the cluster. kubectl supports one minor version either side |
 | Prometheus Helm chart | `29.39.0` (Prometheus v3.15.1) | Newest chart at least 7 days old (new ones ship every day or two) |
+| Grafana Helm chart | `14.2.0` (Grafana 13.3.0), grafana-community repo | Newest chart at least 7 days old. The old `grafana/helm-charts` copy is deprecated |
 
 To upgrade, change the version here first (in a PR), then rerun the install with the new
 version. It upgrades in place.
@@ -328,6 +329,33 @@ official Helm chart, with our settings in `deploy/monitoring/prometheus-values.y
 - **Change a setting:** edit the values file in a PR; Argo CD applies it after merge.
 - **Upgrade the chart:** change `targetRevision` in the Application, then
   `kubectl apply --server-side -k deploy/argocd` (that folder isn't synced by Argo CD itself).
+
+## 11. Dashboards (Grafana)
+
+Grafana draws graphs from Prometheus. It runs in the `monitoring` namespace, deployed by the
+`grafana` Argo CD Application (`deploy/argocd/application-grafana.yaml`) from the
+grafana-community Helm chart. Everything is defined in Git, nothing by clicking:
+
+- Settings: `deploy/monitoring/grafana-values.yaml` (including the Prometheus data source).
+- Dashboards: JSON files in `deploy/monitoring/grafana/dashboards/` (**Runbook**: the app and
+  Ask; **Staging Pi**: CPU, memory, temperature, disk, per-pod use).
+- Admin login: user `admin`, password in the SealedSecret
+  `deploy/monitoring/grafana/admin-secret.sealed.yaml`. To change it, seal a new one the same
+  way as §8 (`kubectl create secret generic grafana-admin -n monitoring
+  --from-literal=admin-user=admin --from-file=admin-password=/dev/stdin --dry-run=client -o yaml
+  | kubeseal --format yaml`, typing the password on stdin), keep the file's
+  `argocd.argoproj.io/sync-wave: "-1"` annotation, commit, and restart Grafana.
+
+Grafana keeps no data of its own (no volume), so a restart brings it back exactly as Git
+describes. **Not exposed** outside the cluster. To open it, forward a port and browse to
+http://127.0.0.1:3000 (from a laptop: `ssh -L 3000:127.0.0.1:3000 <user>@<dev-machine>` first):
+
+```bash
+kubectl -n monitoring port-forward svc/grafana 3000:80
+```
+
+**Changing a dashboard:** edit it in Grafana (it won't let you save over the file), then
+Share → Export → Save to file, replace the JSON file in a PR. Argo CD applies it after merge.
 
 ## Names: `.local` vs `.lan`
 

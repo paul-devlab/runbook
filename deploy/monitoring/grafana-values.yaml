@@ -1,0 +1,72 @@
+# Settings for the Grafana Helm chart (grafana-community/grafana), installed by the
+# Argo CD Application in deploy/argocd/application-grafana.yaml.
+#
+# Everything Grafana needs is defined here or in deploy/monitoring/grafana/, so
+# nothing is set up by clicking: the data source, the dashboards and the admin
+# login all come from Git. Grafana keeps no data of its own (no volume): restart
+# it and it comes back exactly as described here.
+#
+# Not exposed outside the cluster. To open it (docs/staging.md §11):
+#   kubectl -n monitoring port-forward svc/grafana 3000:80
+
+# The admin login comes from the Secret made by the SealedSecret in
+# deploy/monitoring/grafana/admin-secret.sealed.yaml (never in Git as plain text).
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 384Mi
+
+# Grafana doesn't talk to the Kubernetes API, so it gets no token.
+automountServiceAccountToken: false
+
+# A Helm "test" pod we don't use.
+testFramework:
+  enabled: false
+
+grafana.ini:
+  analytics:
+    check_for_updates: false # versions are pinned and upgraded through Git
+    reporting_enabled: false
+  users:
+    allow_sign_up: false
+  log.console:
+    format: json # same format as the app's logs
+
+# Where Grafana reads metrics from: Prometheus, in the same namespace.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus # dashboards refer to it by this id
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc
+        access: proxy
+        isDefault: true
+        editable: false
+
+# Dashboards: JSON files in deploy/monitoring/grafana/dashboards/, made into the
+# ConfigMap "grafana-dashboards" (see the kustomization.yaml there), mounted
+# into Grafana and loaded from disk. Edit a dashboard in Grafana, export it
+# (Share → Export → Save to file), and replace the file in a PR to keep changes.
+dashboardsConfigMaps:
+  runbook: grafana-dashboards
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: runbook
+        folder: Runbook
+        type: file
+        disableDeletion: true
+        # Changes in the UI can't be saved over the file, so Git stays the source.
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards/runbook
