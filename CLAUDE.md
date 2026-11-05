@@ -93,7 +93,7 @@ Dependabot (`.github/dependabot.yml`) opens update PRs every Monday for Python p
 is 7 days old. Review and merge them like any other PR. It does **not** update these
 pins, so bump them by hand, keeping duplicates in step:
 
-- `pgvector/pgvector` service image in `ci.yml` (match `compose.yaml`)
+- `pgvector/pgvector` image in `ci.yml` and `deploy/staging/06-postgres.yaml` (match `compose.yaml`)
 - `ghcr.io/astral-sh/uv` image in the `Dockerfile`'s `COPY --from=` line
 - uv `version:` in `ci.yml` (match the `uv` image in the `Dockerfile`)
 - `tonistiigi/binfmt` and `moby/buildkit` in `image.yml`

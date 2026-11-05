@@ -260,6 +260,31 @@ kubectl apply -f sealed-secrets-key.yaml
 kubectl -n kube-system rollout restart deploy/sealed-secrets-controller
 ```
 
+## 9. PostgreSQL
+
+Postgres runs in the `runbook` namespace as a StatefulSet (`deploy/staging/06-postgres.yaml`),
+with the same `pgvector` image as Compose and CI. It runs as user 999 with a read-only
+filesystem, to meet the namespace's "restricted" Pod Security policy.
+
+- **Data:** the PersistentVolumeClaim `data-postgres-0`, a `local-path` folder on the Pi's
+  disk (the **SD card**, for now). It survives pod restarts and deleting the StatefulSet.
+  Deleting the PVC deletes the data.
+- **Password:** the SealedSecret `runbook-db` (`deploy/staging/05-db-secret.sealed.yaml`).
+  The app and Postgres both read it from the Secret it creates.
+- **The app** connects to the Service `postgres`, and its readiness probe is `/ready`, so it
+  only gets traffic while the database is reachable.
+
+Open a `psql` shell (it runs inside the pod, so no password or port-forward is needed):
+
+```bash
+kubectl -n runbook exec -it postgres-0 -- psql -U runbook -d runbook
+```
+
+**Rotating the password:** seal a new value over `05-db-secret.sealed.yaml` (section 8) and
+merge it. Postgres only reads `POSTGRES_PASSWORD` when it first creates the database, so
+also change it inside Postgres (`ALTER USER runbook PASSWORD '...'`) before restarting
+the app.
+
 ## Names: `.local` vs `.lan`
 
 - **`<staging-host>.local`** is announced by the Pi itself over **mDNS** (Avahi, on by
