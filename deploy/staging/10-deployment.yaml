@@ -36,6 +36,20 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+          # Database settings, read by app/config.py. The password comes from the
+          # Secret the SealedSecret in 05-db-secret.sealed.yaml creates.
+          env:
+            - name: POSTGRES_HOST
+              value: postgres # the Service in 06-postgres.yaml
+            - name: POSTGRES_USER
+              value: runbook
+            - name: POSTGRES_DB
+              value: runbook
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runbook-db
+                  key: POSTGRES_PASSWORD
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -62,11 +76,11 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
-          # Readiness: only send traffic while this passes. It should be /ready
-          # (which checks the database), but there's no database until Phase 3a
-          # and /ready would return 503 forever. Switch it to /ready then.
+          # Readiness: only send traffic while this passes. /ready checks the
+          # database, so if Postgres is down the app stops getting traffic (but
+          # isn't restarted, which wouldn't help).
           readinessProbe:
-            httpGet: { path: /health, port: http }
+            httpGet: { path: /ready, port: http }
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 3

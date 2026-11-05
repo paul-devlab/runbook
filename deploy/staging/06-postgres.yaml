@@ -1,0 +1,133 @@
+# PostgreSQL for staging: one pod with its own disk.
+#
+# A StatefulSet (rather than a Deployment) gives the pod a stable name
+# (postgres-0) and its own PersistentVolumeClaim that survives pod restarts,
+# reschedules and even deleting the StatefulSet.
+#
+# Storage: k3s's local-path provisioner, i.e. a folder on the Pi's own disk.
+# Today that's the SD card. Database writes wear SD cards out; move to a USB
+# SSD before staging holds anything you care about.
+---
+# A "headless" Service (no cluster IP): gives the pod the DNS name
+# postgres-0.postgres.runbook.svc and "postgres" points straight at it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: runbook
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: runbook
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: runbook
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: runbook
+spec:
+  serviceName: postgres
+  replicas: 1 # Postgres doesn't scale by adding replicas; 1 is the only sane value here
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: runbook
+    spec:
+      automountServiceAccountToken: false
+      # Give Postgres time to shut down cleanly (flush to disk) when stopped.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        # The image normally starts as root and drops to the "postgres" user
+        # (999). The namespace's "restricted" policy forbids root, so start as
+        # 999 directly. The local-path data folder is world-writable, so
+        # Postgres can initialise it.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          # Same image and tag as compose.yaml and CI: keep all three in step.
+          image: pgvector/pgvector:0.8.7-pg18-trixie
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: runbook
+            - name: POSTGRES_DB
+              value: runbook
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: runbook-db # created by the SealedSecret in 05-db-secret.sealed.yaml
+                  key: POSTGRES_PASSWORD
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql # PG 18 keeps data in 18/docker below this
+            # Writable scratch space, since the rest of the filesystem is read-only.
+            - name: run
+              mountPath: /var/run/postgresql # Unix socket and lock file
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          # pg_isready asks Postgres "are you accepting connections?".
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "runbook", "-d", "runbook", "-h", "127.0.0.1"]
+            periodSeconds: 5
+            failureThreshold: 60 # first start (initdb) on a Pi can take a while
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "runbook", "-d", "runbook", "-h", "127.0.0.1"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "runbook", "-d", "runbook", "-h", "127.0.0.1"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4 # restart only after ~2 minutes of no answer
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  # One PersistentVolumeClaim per pod, created from this template: data-postgres-0.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: postgres
+          app.kubernetes.io/part-of: runbook
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi # local-path doesn't enforce this; it's a statement of intent
