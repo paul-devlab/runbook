@@ -43,6 +43,17 @@
     <p class="muted">Not written yet.</p>
   {% endif %}
 
+  <h2>Runbooks used</h2>
+  {% if incident.runbooks %}
+    <ul>
+      {% for r in incident.runbooks %}
+        <li><a href="/runbooks/{{ r.id }}">{{ r.title }}</a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">None linked.</p>
+  {% endif %}
+
   <p class="muted small">
     Recorded {{ incident.created_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.created_by.display_name }}
     · Updated {{ incident.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.updated_by.display_name }}

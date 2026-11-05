@@ -325,3 +325,81 @@ def test_database_rejects_bad_data_even_without_the_form(logged_in, bad_values) 
     with Session(get_engine()) as db, pytest.raises(IntegrityError):
         db.execute(update(Incident).where(Incident.id == incident_id).values(**bad_values))
         db.commit()
+
+
+# --- Links to runbooks --------------------------------------------------------
+
+
+def test_linked_runbook_ids_are_deduped_and_limited() -> None:
+    assert IncidentForm.from_input(**form_input(runbook_ids=[3, 1, 3])).runbook_ids == [3, 1]
+    errors = IncidentForm.from_input(**form_input(runbook_ids=list(range(1, 22)))).errors
+    assert "Link at most 20 runbooks." in errors
+
+
+def create_runbook(client: TestClient, title: str) -> int:
+    response = client.post("/runbooks", data={"title": title, "csrf_token": CSRF})
+    return int(response.headers["location"].rsplit("/", 1)[1])
+
+
+@pytest.mark.integration
+def test_incident_links_to_runbooks_both_ways(logged_in) -> None:
+    dns = create_runbook(logged_in, "Restart DNS")
+    vpn = create_runbook(logged_in, "Reset VPN")
+    create_runbook(logged_in, "Unrelated")
+
+    form = logged_in.get("/incidents/new").text
+    assert f'name="runbook_ids" value="{dns}"' in form  # every runbook is offered
+
+    incident_id = create(logged_in, title="Outage", runbook_ids=[dns, vpn])
+
+    incident_page = logged_in.get(f"/incidents/{incident_id}").text
+    assert f'href="/runbooks/{dns}"' in incident_page
+    assert f'href="/runbooks/{vpn}"' in incident_page
+    runbook_page = logged_in.get(f"/runbooks/{dns}").text
+    assert "Used in incidents" in runbook_page
+    assert f'href="/incidents/{incident_id}"' in runbook_page
+
+
+@pytest.mark.integration
+def test_editing_changes_the_links(logged_in) -> None:
+    dns = create_runbook(logged_in, "Restart DNS")
+    vpn = create_runbook(logged_in, "Reset VPN")
+    incident_id = create(logged_in, runbook_ids=[dns])
+
+    form = logged_in.get(f"/incidents/{incident_id}/edit").text
+    assert re.search(rf'value="{dns}"\s+checked', form)  # ticked
+    assert not re.search(rf'value="{vpn}"\s+checked', form)  # not ticked
+
+    logged_in.post(
+        f"/incidents/{incident_id}/edit", data=form_input(csrf_token=CSRF, runbook_ids=[vpn])
+    )
+
+    with Session(get_engine()) as db:
+        assert [r.id for r in db.get(Incident, incident_id).runbooks] == [vpn]
+
+
+@pytest.mark.integration
+def test_ticking_a_deleted_runbook_is_an_error(logged_in) -> None:
+    gone = create_runbook(logged_in, "Soon deleted")
+    logged_in.post(f"/runbooks/{gone}/delete", data={"csrf_token": CSRF})
+
+    response = logged_in.post("/incidents", data=form_input(csrf_token=CSRF, runbook_ids=[gone]))
+
+    assert response.status_code == 400
+    assert "has been deleted" in response.text
+
+
+@pytest.mark.integration
+def test_deleting_either_side_keeps_the_other(logged_in) -> None:
+    runbook_id = create_runbook(logged_in, "Keep me")
+    incident_id = create(logged_in, runbook_ids=[runbook_id])
+    other_runbook = create_runbook(logged_in, "Linked, then deleted")
+    other_incident = create(logged_in, runbook_ids=[other_runbook])
+
+    logged_in.post(f"/incidents/{incident_id}/delete", data={"csrf_token": CSRF})
+    logged_in.post(f"/runbooks/{other_runbook}/delete", data={"csrf_token": CSRF})
+
+    assert logged_in.get(f"/runbooks/{runbook_id}").status_code == 200
+    assert "Used in incidents" not in logged_in.get(f"/runbooks/{runbook_id}").text
+    assert load(other_incident) is not None
+    assert "None linked." in logged_in.get(f"/incidents/{other_incident}").text

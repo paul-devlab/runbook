@@ -24,4 +24,18 @@
   {% else %}
     <p class="muted">No steps written yet.</p>
   {% endif %}
+
+  {# Incidents that link to this runbook (set on the incident form). #}
+  {% if runbook.incidents %}
+    <h2>Used in incidents</h2>
+    <ul class="record-list">
+      {% for incident in runbook.incidents %}
+        <li>
+          {% include "incidents/_badges.html" %}
+          <a href="/incidents/{{ incident.id }}">{{ incident.title }}</a>
+          <p class="muted small">Started {{ incident.started_at.strftime("%d %b %Y %H:%M") }} UTC</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
 {% endblock %}
