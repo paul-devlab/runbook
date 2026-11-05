@@ -114,7 +114,7 @@ def test_create_and_view(logged_in, user) -> None:
     assert page.status_code == 200
     assert "Restart DNS" in page.text
     assert "When lookups fail" in page.text
-    assert "1. ssh dns01\n2. restart" in page.text
+    assert "<li>ssh dns01</li>" in page.text  # Markdown is rendered
     assert "Runbook Tester" in page.text
     saved = load(runbook_id)
     assert saved.created_by_id == saved.updated_by_id == user.id
@@ -215,3 +215,13 @@ def test_content_is_shown_as_text_not_html(logged_in) -> None:
     for page in (logged_in.get("/runbooks"), logged_in.get(f"/runbooks/{runbook_id}")):
         assert evil not in page.text
         assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page.text
+
+
+@pytest.mark.integration
+def test_body_markdown_is_rendered_and_sanitised(logged_in) -> None:
+    runbook_id = create(logged_in, "Links", body_md="[bad](javascript:alert(1)) **bold**")
+
+    page = logged_in.get(f"/runbooks/{runbook_id}").text
+
+    assert "<strong>bold</strong>" in page
+    assert 'href="javascript' not in page  # shown as text, never as a link

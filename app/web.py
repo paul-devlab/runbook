@@ -5,7 +5,7 @@ Every page extends templates/base.html, which holds the shared layout.
 
 Security: Jinja2 *autoescaping* is on for .html templates, so a value like
 "<script>" in a record is shown as text, not run as code. Never mark user
-content `|safe`; Markdown gets its own sanitiser later.
+content `|safe`; Markdown goes through `|markdown`, which sanitises it.
 """
 
 from pathlib import Path
@@ -31,6 +31,7 @@ from app.auth import (
 from app.config import get_settings
 from app.csrf import csrf_context, verify_csrf
 from app.db import get_db
+from app.markdown import render_markdown
 from app.models import User
 
 APP_DIR = Path(__file__).parent
@@ -38,6 +39,8 @@ STATIC_DIR = APP_DIR / "static"
 
 # context_processors add values to every template: here {{ csrf_token }}.
 templates = Jinja2Templates(directory=APP_DIR / "templates", context_processors=[csrf_context])
+# {{ text | markdown }} renders Markdown to sanitised HTML (app/markdown.py).
+templates.env.filters["markdown"] = render_markdown
 
 router = APIRouter()
 

@@ -9,6 +9,8 @@ dependencies = [
     "argon2-cffi==25.1.0",
     "fastapi==0.162.0",
     "jinja2==3.1.6",
+    "markdown-it-py==4.2.0",
+    "nh3==0.3.7",
     "psycopg[binary]==3.3.8",
     "pydantic-settings==2.16.2",
     "python-multipart==0.0.32",
