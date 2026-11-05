@@ -4,6 +4,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: runbook
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2" # first: everything else lives in it
   labels:
     app.kubernetes.io/part-of: runbook
     # Pod Security Admission: Kubernetes rejects pods in this namespace that

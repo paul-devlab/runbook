@@ -1,0 +1,20 @@
+# The staging app. Argo CD sees this file and builds the folder with Kustomize.
+# By hand (bootstrap only):  kubectl apply -k deploy/staging
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 00-namespace.yaml
+  - 05-db-secret.sealed.yaml
+  - 06-postgres.yaml
+  - 08-migrate-job.yaml
+  - 10-deployment.yaml
+  - 20-service.yaml
+  - 30-ingress.yaml
+
+# The app image, used by both the app (10-deployment.yaml) and the migration Job
+# (08-migrate-job.yaml). To deploy a new version, change newTag to the new main
+# commit's sha-<full SHA> in a PR. This is the only place the tag lives.
+images:
+  - name: ghcr.io/paul-devlab/runbook
+    newTag: sha-49eda013fe67c8961d9ec164d210a30265cb387a

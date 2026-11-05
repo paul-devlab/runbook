@@ -15,6 +15,8 @@ kind: Service
 metadata:
   name: postgres
   namespace: runbook
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1" # before migrations (0) and the app (1)
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/part-of: runbook
@@ -32,6 +34,8 @@ kind: StatefulSet
 metadata:
   name: postgres
   namespace: runbook
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1" # before migrations (0) and the app (1)
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/part-of: runbook
