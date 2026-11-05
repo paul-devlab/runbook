@@ -26,7 +26,8 @@ from sqlalchemy.orm import Session
 from app.auth import require_user
 from app.csrf import verify_csrf
 from app.db import get_db
-from app.models import Runbook, User
+from app.models import Runbook, Tag, User
+from app.tags import get_or_create_tags, normalise_tag, parse_tags
 from app.web import render
 
 router = APIRouter(prefix="/runbooks")
@@ -40,6 +41,7 @@ BODY_MAX = 100_000  # ~100 KB of Markdown is a very long runbook
 TitleField = Annotated[str, Form(max_length=TITLE_MAX)]
 SummaryField = Annotated[str, Form(max_length=SUMMARY_MAX)]
 BodyField = Annotated[str, Form(max_length=BODY_MAX)]
+TagsField = Annotated[str, Form(max_length=1000)]  # the comma-separated text
 
 CurrentUser = Annotated[User, Depends(require_user)]
 Db = Annotated[Session, Depends(get_db)]
@@ -56,19 +58,36 @@ class RunbookForm:
     title: str
     summary: str
     body_md: str
+    tags_text: str = ""  # as typed, so it can be shown again after an error
+    tag_names: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_input(cls, title: str, summary: str = "", body_md: str = "") -> "RunbookForm":
+    def from_input(
+        cls, title: str, summary: str = "", body_md: str = "", tags: str = ""
+    ) -> "RunbookForm":
+        tag_names, tag_errors = parse_tags(tags)
         form = cls(
             title=title.strip(),
             summary=summary.strip(),
             # Browsers send line breaks as \r\n; store plain \n.
             body_md=body_md.replace("\r\n", "\n").strip(),
+            tags_text=tags,
+            tag_names=tag_names,
         )
         if not form.title:
             form.errors.append("Give the runbook a title.")
+        form.errors += tag_errors
         return form
+
+    @classmethod
+    def from_runbook(cls, runbook: Runbook) -> "RunbookForm":
+        return cls(
+            title=runbook.title,
+            summary=runbook.summary,
+            body_md=runbook.body_md,
+            tags_text=", ".join(tag.name for tag in runbook.tags),
+        )
 
 
 def get_runbook(db: Session, runbook_id: int) -> Runbook:
@@ -103,10 +122,23 @@ def see_other(url: str) -> RedirectResponse:
 
 
 @router.get("", response_class=HTMLResponse)
-def list_runbooks(request: Request, user: CurrentUser, db: Db) -> HTMLResponse:
-    runbooks = db.scalars(select(Runbook).order_by(Runbook.updated_at.desc())).all()
+def list_runbooks(
+    request: Request, user: CurrentUser, db: Db, tag: str | None = None
+) -> HTMLResponse:
+    """All runbooks, or only those with ?tag=name."""
+    query = select(Runbook).order_by(Runbook.updated_at.desc())
+    tag = normalise_tag(tag)[:100] if tag else None
+    if tag:
+        # .any() = "has at least one tag with this name" (an EXISTS subquery).
+        query = query.where(Runbook.tags.any(Tag.name == tag))
+    runbooks = db.scalars(query).all()
     return render(
-        request, "runbooks/list.html", page_title="Runbooks", user=user, runbooks=runbooks
+        request,
+        "runbooks/list.html",
+        page_title=f"Runbooks tagged {tag}" if tag else "Runbooks",
+        user=user,
+        runbooks=runbooks,
+        tag=tag,
     )
 
 
@@ -123,8 +155,9 @@ def create_runbook(
     title: TitleField,
     summary: SummaryField = "",
     body_md: BodyField = "",
+    tags: TagsField = "",
 ) -> Response:
-    form = RunbookForm.from_input(title, summary, body_md)
+    form = RunbookForm.from_input(title, summary, body_md, tags)
     if form.errors:
         return form_page(request, user, form, status_code=status.HTTP_400_BAD_REQUEST)
     runbook = Runbook(
@@ -133,6 +166,7 @@ def create_runbook(
         body_md=form.body_md,
         created_by_id=user.id,
         updated_by_id=user.id,
+        tags=get_or_create_tags(db, form.tag_names),
     )
     db.add(runbook)
     db.commit()
@@ -150,8 +184,7 @@ def view_runbook(request: Request, runbook_id: int, user: CurrentUser, db: Db) -
 @router.get("/{runbook_id}/edit", response_class=HTMLResponse)
 def edit_runbook(request: Request, runbook_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
     runbook = get_runbook(db, runbook_id)
-    form = RunbookForm(title=runbook.title, summary=runbook.summary, body_md=runbook.body_md)
-    return form_page(request, user, form, runbook=runbook)
+    return form_page(request, user, RunbookForm.from_runbook(runbook), runbook=runbook)
 
 
 @router.post("/{runbook_id}/edit", dependencies=[Depends(verify_csrf)])
@@ -163,9 +196,10 @@ def update_runbook(
     title: TitleField,
     summary: SummaryField = "",
     body_md: BodyField = "",
+    tags: TagsField = "",
 ) -> Response:
     runbook = get_runbook(db, runbook_id)
-    form = RunbookForm.from_input(title, summary, body_md)
+    form = RunbookForm.from_input(title, summary, body_md, tags)
     if form.errors:
         return form_page(
             request, user, form, runbook=runbook, status_code=status.HTTP_400_BAD_REQUEST
@@ -173,6 +207,7 @@ def update_runbook(
     runbook.title = form.title
     runbook.summary = form.summary
     runbook.body_md = form.body_md
+    runbook.tags = get_or_create_tags(db, form.tag_names)
     runbook.updated_by_id = user.id
     db.commit()
     return see_other(f"/runbooks/{runbook.id}")

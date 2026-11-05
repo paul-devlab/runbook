@@ -18,6 +18,9 @@
     <label for="summary">Summary <span class="muted">(optional, one or two sentences)</span></label>
     <input id="summary" name="summary" value="{{ form.summary }}" maxlength="500">
 
+    <label for="tags">Tags <span class="muted">(optional, separated by commas: dns, networking, on-call)</span></label>
+    <input id="tags" name="tags" value="{{ form.tags_text }}" maxlength="1000">
+
     <label for="body_md">Steps <span class="muted">(Markdown: <code># heading</code>, <code>1. step</code>, <code>`command`</code>, <code>```</code> code blocks)</span></label>
     <textarea id="body_md" name="body_md" rows="18" maxlength="100000">{{ form.body_md }}</textarea>
 
