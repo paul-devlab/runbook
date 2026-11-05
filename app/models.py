@@ -82,6 +82,20 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class AskUse(Base):
+    """One question sent to Claude: who asked and when, nothing else (the
+    question itself is never stored). app/ask.py counts recent rows per user to
+    rate-limit Ask, and deletes rows once they're too old to count."""
+
+    __tablename__ = "ask_uses"
+    __table_args__ = (Index("ix_ask_uses_user_asked", "user_id", "asked_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # ON DELETE CASCADE: deleting a user deletes their counts too.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class LoginFailure(Base):
     """One failed login attempt, used to slow down password guessing.
 

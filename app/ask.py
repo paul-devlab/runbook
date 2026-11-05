@@ -15,7 +15,8 @@ How a question is answered:
    is untrusted text: it goes through the Markdown sanitiser, and any links
    other than our own citation links are removed.
 
-Questions and answers are not stored or logged (docs/SPEC.md §6).
+Questions and answers are not stored or logged (docs/SPEC.md §6). Each user
+can send Claude at most 10 questions a minute and 100 a day (`use_allowance`).
 
 Security: record content is written by people, so it's *data*, never
 instructions. A record saying "ignore your rules" is just text in a <record>
@@ -27,6 +28,7 @@ record can't pretend to end early.
 import logging
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Annotated
 
@@ -35,7 +37,7 @@ import nh3
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse
 from markupsafe import Markup
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
@@ -43,7 +45,7 @@ from app.config import get_settings
 from app.csrf import verify_csrf
 from app.db import get_db
 from app.markdown import ALLOWED_ATTRIBUTES, ALLOWED_TAGS, render_markdown
-from app.models import Incident, Runbook, User
+from app.models import AskUse, Incident, Runbook, User
 from app.search import any_word_matches
 from app.web import render
 
@@ -60,6 +62,9 @@ MAX_TOKENS = 8000
 # keeps it quick and cheap.
 EFFORT = "low"
 TIMEOUT_SECONDS = 60
+# Per user, counting only questions that reach Claude (they're what costs money).
+# Generous for a person; stops a stuck script or a stolen session running up a bill.
+LIMITS = ((timedelta(minutes=1), 10, "a minute"), (timedelta(days=1), 100, "a day"))
 
 NOT_SET_UP = "Ask isn't set up yet: the server has no Anthropic API key."
 NOTHING_FOUND = (
@@ -69,6 +74,7 @@ NOTHING_FOUND = (
 REFUSED = "Claude declined to answer this question. Try rephrasing it."
 SPEND_LIMIT = "Ask has reached its monthly spending limit. It will work again next month."
 UNAVAILABLE = "Ask is unavailable right now. Try again in a minute."
+TOO_MANY = "You've asked {limit} questions in {period}, the most allowed. Try again later."
 
 SYSTEM_PROMPT = """\
 You answer questions from an IT team using the team's own runbooks and incident records.
@@ -311,6 +317,39 @@ def ask_claude(
     return Answer(html=render_answer(link_citations(text, sources)), cut_short=cut_short)
 
 
+# --- Rate limits ------------------------------------------------------------------
+
+
+def use_allowance(db: Session, user: User) -> str:
+    """Count one question against the user's limits (LIMITS). Returns "" if it's
+    allowed (and records it), or a message saying which limit was reached.
+    Commits.
+
+    Recorded *before* Claude is called, so a question that fails still counts:
+    otherwise retrying a failing request would be free and unlimited.
+    """
+    now = datetime.now(UTC)
+    # Lock this user's row until the commit below, so two questions sent at the
+    # same moment are counted one after the other and can't both slip under
+    # the limit.
+    db.execute(select(User.id).where(User.id == user.id).with_for_update())
+    longest = max(window for window, _, _ in LIMITS)
+    # Housekeeping: rows older than the longest window no longer count.
+    db.execute(delete(AskUse).where(AskUse.asked_at < now - longest))
+    for window, limit, period in LIMITS:
+        used = db.scalar(
+            select(func.count())
+            .select_from(AskUse)
+            .where(AskUse.user_id == user.id, AskUse.asked_at > now - window)
+        )
+        if used >= limit:
+            db.commit()  # keep the housekeeping, release the lock
+            return TOO_MANY.format(limit=limit, period=period)
+    db.add(AskUse(user_id=user.id, asked_at=now))
+    db.commit()
+    return ""
+
+
 # --- The page --------------------------------------------------------------------
 
 CurrentUser = Annotated[User, Depends(require_user)]
@@ -362,6 +401,11 @@ def ask(
     sources = find_sources(db, question)
     if not sources:
         return ask_page(request, user, question=question, problem=NOTHING_FOUND)
+    over_limit = use_allowance(db, user)
+    if over_limit:
+        return ask_page(
+            request, user, status.HTTP_429_TOO_MANY_REQUESTS, question=question, problem=over_limit
+        )
     answer = ask_claude(claude, get_settings().anthropic_model, question, sources)
     unavailable = answer.problem in (UNAVAILABLE, SPEND_LIMIT)
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE if unavailable else status.HTTP_200_OK
