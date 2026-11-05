@@ -15,6 +15,7 @@ services:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "127.0.0.1:8000:8000"   # only reachable from this machine, not the LAN
+      - "127.0.0.1:9000:9000"   # Prometheus metrics: http://127.0.0.1:9000/metrics
     environment:
       # Read by app/config.py. Same values the db service uses, from .env.
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
