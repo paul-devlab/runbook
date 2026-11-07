@@ -103,8 +103,9 @@ runbooks / incidents ──< revisions (entity_type + entity_id)
 Notes:
 - `search_vector` is a generated `tsvector` column with a GIN index. It powers full-text search.
 - Sessions store a **hash** of the token, so a leaked database dump can't be used to log in.
-- Later (Phase 5): an `attachments` table with entity_type, entity_id, filename, content_type,
-  size_bytes, storage_key, uploaded_by, uploaded_at.
+- Phase 5: an `attachments` table with runbook_id *or* incident_id (exactly one; real foreign
+  keys, so deleting a record deletes its files), filename, content_type, size_bytes, sha256,
+  data (the file itself, `bytea`, at most 10 MB), uploaded_by, uploaded_at.
 - Later (Phase 6): a pgvector `embedding` column (or a separate table) for semantic search.
 
 ## 6. AI behaviour
@@ -158,7 +159,9 @@ amd64 nodes are future decisions (see open questions).
 - **Postgres in k3s:** a plain StatefulSet (simpler to learn) or an operator such as CloudNativePG (handles backups and failover)? Decide at the start of Phase 3a.
 - **Backups:** what, where and how often; how to test a restore.
 - **Pi capacity:** will k3s + Argo CD + Postgres + the app fit in the Pi's RAM? Should Postgres data live on a USB SSD instead of the SD card? SD cards wear out under database writes.
-- **Attachment storage (Phase 5):** a PersistentVolumeClaim, or S3-compatible object storage (e.g. MinIO)?
+- ~~**Attachment storage (Phase 5):** a PersistentVolumeClaim, or S3-compatible object storage (e.g. MinIO)?~~
+  Decided: in Postgres (`bytea`), with a 10 MB cap. Nothing new to run or back up, and files are
+  deleted with their record. Revisit (object storage) if files outgrow the database.
 - **More nodes:** when to add amd64 nodes, and whether workloads should prefer them.
 - **Production:** where and when a production environment exists, and how changes are promoted from staging.
 - **Observability footprint:** can Prometheus + Grafana run on the staging node, or should they live elsewhere?

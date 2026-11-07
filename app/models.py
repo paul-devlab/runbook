@@ -274,6 +274,9 @@ incident_runbooks = Table(
 
 # Largest file that can be attached (10 MB). The upload form checks it first;
 # the database refuses anything bigger as a second line of defence.
+# Changing it needs a hand-written migration that drops and recreates the
+# ck_attachments_size_valid constraint: autogenerate doesn't compare check
+# constraints. A test (tests/test_attachments.py) fails until you do.
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 
 

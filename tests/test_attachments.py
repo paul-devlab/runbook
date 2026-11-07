@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import delete, inspect, select
+from sqlalchemy import delete, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -128,3 +128,14 @@ def test_files_over_the_limit_are_refused(db) -> None:
 
     with pytest.raises(IntegrityError, match="ck_attachments_size_valid"):
         db.commit()
+
+
+def test_the_database_limit_matches_the_app(db) -> None:
+    """The constraint was written by a migration; if MAX_ATTACHMENT_BYTES changes
+    without a new migration, the two disagree. (Autogenerate can't spot this.)"""
+    definition = db.scalar(
+        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :name"),
+        {"name": "ck_attachments_size_valid"},
+    )
+
+    assert f"<= {MAX_ATTACHMENT_BYTES})" in definition
