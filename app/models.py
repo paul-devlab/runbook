@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    LargeBinary,
     MetaData,
     String,
     Table,
@@ -269,6 +270,66 @@ incident_runbooks = Table(
         "runbook_id", ForeignKey("runbooks.id", ondelete="CASCADE"), primary_key=True, index=True
     ),
 )
+
+
+# Largest file that can be attached (10 MB). The upload form checks it first;
+# the database refuses anything bigger as a second line of defence.
+# Changing it needs a hand-written migration that drops and recreates the
+# ck_attachments_size_valid constraint: autogenerate doesn't compare check
+# constraints. A test (tests/test_attachments.py) fails until you do.
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+
+
+class Attachment(Base):
+    """A file attached to a runbook or an incident, stored in Postgres itself.
+
+    Keeping files in the database (rather than on a disk volume) means nothing
+    new to run or back up, and deleting a record deletes its files in the same
+    transaction. Postgres moves large values out of the main table ("TOAST")
+    automatically, so big files don't slow down ordinary queries.
+
+    Each attachment belongs to exactly one record: either runbook_id or
+    incident_id is set, never both (the check constraint enforces it). Two
+    columns instead of one "entity_id" means each gets a real foreign key, so
+    ON DELETE CASCADE removes the files when their record is deleted.
+
+    Files are never sent to Claude.
+    """
+
+    __tablename__ = "attachments"
+    __table_args__ = (
+        CheckConstraint("num_nonnulls(runbook_id, incident_id) = 1", name="one_owner"),
+        CheckConstraint(
+            f"size_bytes = octet_length(data) AND size_bytes <= {MAX_ATTACHMENT_BYTES}",
+            name="size_valid",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    runbook_id: Mapped[int | None] = mapped_column(
+        ForeignKey("runbooks.id", ondelete="CASCADE"), index=True
+    )
+    incident_id: Mapped[int | None] = mapped_column(
+        ForeignKey("incidents.id", ondelete="CASCADE"), index=True
+    )
+    # The cleaned-up name shown to users and used for downloads.
+    filename: Mapped[str] = mapped_column(String(255))
+    # The type the app worked out from the file's content (e.g. "image/png"),
+    # not whatever the browser claimed.
+    content_type: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int]
+    # SHA-256 of the data, as 64 hex characters: lets anyone check a download.
+    sha256: Mapped[str] = mapped_column(String(64))
+    # The file itself (bytea). Deferred: loaded only when read, so listing a
+    # record's attachments doesn't pull megabytes out of the database.
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    # Users are deactivated, never deleted (like runbook authors).
+    uploaded_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    uploaded_by: Mapped[User] = relationship(lazy="joined")
 
 
 ENTITY_TYPES = ("runbook", "incident")
