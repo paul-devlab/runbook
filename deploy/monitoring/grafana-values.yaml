@@ -21,7 +21,7 @@ resources:
     cpu: 50m
     memory: 128Mi
   limits:
-    memory: 384Mi
+    memory: 512Mi  # Grafana 13 settles near 300Mi; 384Mi left too little headroom
 
 # Grafana doesn't talk to the Kubernetes API, so it gets no token.
 automountServiceAccountToken: false
