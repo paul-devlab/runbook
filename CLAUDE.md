@@ -109,6 +109,10 @@ input in a label.
 Prometheus runs on staging (`monitoring` namespace; docs/staging.md §10). Settings are in
 `deploy/monitoring/prometheus-values.yaml`; the chart version is pinned in
 `deploy/argocd/application-prometheus.yaml` (a manual pin; Dependabot doesn't update it).
+Grafana likewise (docs/staging.md §11): `deploy/monitoring/grafana-values.yaml`, dashboards as
+JSON in `deploy/monitoring/grafana/dashboards/`, chart pinned in
+`deploy/argocd/application-grafana.yaml`. Check dashboard queries against the live Prometheus
+before committing them.
 
 Create a login (there's no self-signup; the password is prompted for, twice):
 
