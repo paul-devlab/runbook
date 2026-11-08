@@ -13,6 +13,8 @@ from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.ask import router as ask_router
+from app.attachments import LimitBodySize
+from app.attachments import router as attachments_router
 from app.auth import LoginRequired
 from app.config import get_settings
 from app.csrf import REJECTED, CsrfFailed, csrf_middleware
@@ -46,6 +48,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Refuse cross-site form posts and hand out CSRF tokens (app/csrf.py).
 app.middleware("http")(csrf_middleware)
 
+# Refuse oversized request bodies before they're read (app/attachments.py).
+app.add_middleware(LimitBodySize)
+
 # Count and time every request for Prometheus (app/metrics.py).
 app.middleware("http")(metrics_middleware)
 
@@ -58,6 +63,7 @@ app.include_router(web_router)
 app.include_router(runbooks_router)
 app.include_router(incidents_router)
 app.include_router(revisions_router)
+app.include_router(attachments_router)
 app.include_router(ask_router)
 
 

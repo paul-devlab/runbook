@@ -55,6 +55,8 @@
     <p class="muted">None linked.</p>
   {% endif %}
 
+  {% with attachments = incident.attachments, upload_url = "/incidents/%d/attachments" % incident.id %}{% include "_attachments.html" %}{% endwith %}
+
   <p class="muted small">
     Recorded {{ incident.created_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.created_by.display_name }}
     · Updated {{ incident.updated_at.strftime("%d %b %Y %H:%M") }} UTC by {{ incident.updated_by.display_name }}

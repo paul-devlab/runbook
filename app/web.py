@@ -42,6 +42,18 @@ templates = Jinja2Templates(directory=APP_DIR / "templates", context_processors=
 # {{ text | markdown }} renders Markdown to sanitised HTML (app/markdown.py).
 templates.env.filters["markdown"] = render_markdown
 
+
+def format_size(size_bytes: int) -> str:
+    """A file size for people: 512 bytes, 3.4 KB, 1.2 MB."""
+    if size_bytes < 1024:
+        return f"{size_bytes} bytes"
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+templates.env.filters["filesize"] = format_size
+
 router = APIRouter()
 
 # The same message for every failed login, so it never reveals whether an

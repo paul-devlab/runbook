@@ -184,12 +184,29 @@ def create_runbook(
     return see_other(f"/runbooks/{runbook.id}")
 
 
+def view_page(
+    request: Request,
+    user: User,
+    runbook: Runbook,
+    *,
+    problem: str | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    """The runbook's page. `problem` is why an attachment was refused, if one was."""
+    return render(
+        request,
+        "runbooks/view.html",
+        status_code=status_code,
+        page_title=runbook.title,
+        user=user,
+        runbook=runbook,
+        attachment_problem=problem,
+    )
+
+
 @router.get("/{runbook_id}", response_class=HTMLResponse)
 def view_runbook(request: Request, runbook_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
-    runbook = get_runbook(db, runbook_id)
-    return render(
-        request, "runbooks/view.html", page_title=runbook.title, user=user, runbook=runbook
-    )
+    return view_page(request, user, get_runbook(db, runbook_id))
 
 
 @router.get("/{runbook_id}/edit", response_class=HTMLResponse)

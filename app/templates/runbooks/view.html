@@ -39,4 +39,6 @@
       {% endfor %}
     </ul>
   {% endif %}
+
+  {% with attachments = runbook.attachments, upload_url = "/runbooks/%d/attachments" % runbook.id %}{% include "_attachments.html" %}{% endwith %}
 {% endblock %}
