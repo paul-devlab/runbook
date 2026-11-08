@@ -190,6 +190,13 @@ class Runbook(Base):
         back_populates="runbooks",
         order_by="Incident.started_at.desc()",
     )
+    attachments: Mapped[list["Attachment"]] = relationship(
+        # passive_deletes: leave removing files to the database's ON DELETE CASCADE,
+        # rather than SQLAlchemy clearing the link first (which the check would refuse).
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Attachment.id",
+    )
 
 
 SEVERITIES = ("SEV1", "SEV2", "SEV3", "SEV4")  # SEV1 = most severe
@@ -257,6 +264,13 @@ class Incident(Base):
         back_populates="incidents",
         order_by=Runbook.title,
         lazy="selectin",
+    )
+    attachments: Mapped[list["Attachment"]] = relationship(
+        # passive_deletes: leave removing files to the database's ON DELETE CASCADE,
+        # rather than SQLAlchemy clearing the link first (which the check would refuse).
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Attachment.id",
     )
 
 

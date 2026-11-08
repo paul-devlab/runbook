@@ -332,12 +332,29 @@ def create_incident(
     return see_other(f"/incidents/{incident.id}")
 
 
+def view_page(
+    request: Request,
+    user: User,
+    incident: Incident,
+    *,
+    problem: str | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
+    """The incident's page. `problem` is why an attachment was refused, if one was."""
+    return render(
+        request,
+        "incidents/view.html",
+        status_code=status_code,
+        page_title=incident.title,
+        user=user,
+        incident=incident,
+        attachment_problem=problem,
+    )
+
+
 @router.get("/{incident_id}", response_class=HTMLResponse)
 def view_incident(request: Request, incident_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
-    incident = get_incident(db, incident_id)
-    return render(
-        request, "incidents/view.html", page_title=incident.title, user=user, incident=incident
-    )
+    return view_page(request, user, get_incident(db, incident_id))
 
 
 @router.get("/{incident_id}/edit", response_class=HTMLResponse)
