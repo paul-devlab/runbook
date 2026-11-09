@@ -2,6 +2,9 @@
 
     POST /runbooks/{id}/attachments     upload a file to a runbook
     POST /incidents/{id}/attachments    upload a file to an incident
+    GET  /attachments/{id}              download a file
+    GET  /attachments/{id}/delete       "are you sure?"
+    POST /attachments/{id}/delete       delete a file
 
 An uploaded file is untrusted, so before storing one we check:
 - its size (up to MAX_ATTACHMENT_BYTES, and not empty);
@@ -9,6 +12,9 @@ An uploaded file is untrusted, so before storing one we check:
 - its type, from the *content*, which must agree with the extension. What the
   browser claims (Content-Type) is ignored because anyone can fake it. SVG and
   HTML are never allowed: they can contain scripts.
+
+Downloads are always served as downloads, never shown as part of the site, so
+a file that slipped through these checks still can't run with the site's access.
 
 Files are stored in Postgres (see the Attachment model) and never sent to Claude.
 """
@@ -19,9 +25,10 @@ import re
 import unicodedata
 from pathlib import PurePosixPath
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile, status
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -33,6 +40,7 @@ from app.incidents import view_page as incident_page
 from app.models import MAX_ATTACHMENT_BYTES, Attachment, Incident, Runbook, User
 from app.runbooks import get_runbook
 from app.runbooks import view_page as runbook_page
+from app.web import NotFound, render
 
 logger = logging.getLogger(__name__)
 
@@ -219,3 +227,66 @@ def upload_to_incident(
     if refused:
         return incident_page(request, user, incident, problem=refused[0], status_code=refused[1])
     return see_owner(f"/incidents/{incident_id}")
+
+
+def get_attachment(db: Session, attachment_id: int) -> Attachment:
+    attachment = db.get(Attachment, attachment_id)
+    if attachment is None:
+        raise NotFound
+    return attachment
+
+
+def owner_url(attachment: Attachment) -> str:
+    """The page of the runbook or incident the file belongs to."""
+    if attachment.runbook_id is not None:
+        return f"/runbooks/{attachment.runbook_id}"
+    return f"/incidents/{attachment.incident_id}"
+
+
+def content_disposition(filename: str) -> str:
+    """Tells the browser to save the file, under its own name. `filename` is an
+    ASCII-only fallback for old browsers; `filename*` is the exact name,
+    percent-encoded so no character in it can alter the header."""
+    fallback = re.sub(r"[^A-Za-z0-9._-]", "_", filename)
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
+@router.get("/attachments/{attachment_id}")
+def download_attachment(attachment_id: int, user: CurrentUser, db: Db) -> Response:
+    attachment = get_attachment(db, attachment_id)
+    return Response(
+        attachment.data,
+        media_type=attachment.content_type,
+        headers={
+            "Content-Disposition": content_disposition(attachment.filename),
+            # Believe our Content-Type: no guessing that a text file is really HTML.
+            "X-Content-Type-Options": "nosniff",
+            # If a browser displays it anyway, nothing in it may run.
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            # Needs a login, so shared caches and the browser mustn't keep a copy.
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get("/attachments/{attachment_id}/delete", response_class=HTMLResponse)
+def confirm_delete(request: Request, attachment_id: int, user: CurrentUser, db: Db) -> HTMLResponse:
+    attachment = get_attachment(db, attachment_id)
+    return render(
+        request,
+        "attachment_delete.html",
+        page_title=f"Delete {attachment.filename}",
+        user=user,
+        attachment=attachment,
+        back_url=owner_url(attachment),
+    )
+
+
+@router.post("/attachments/{attachment_id}/delete", dependencies=[Depends(verify_csrf)])
+def delete_attachment(attachment_id: int, user: CurrentUser, db: Db) -> Response:
+    attachment = get_attachment(db, attachment_id)
+    back_url = owner_url(attachment)
+    db.delete(attachment)
+    db.commit()
+    logger.info("Attachment deleted", extra={"attachment_id": attachment_id})
+    return see_owner(back_url)

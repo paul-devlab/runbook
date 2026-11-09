@@ -22,6 +22,7 @@ from app.attachments import (
     BodyTooBig,
     LimitBodySize,
     clean_filename,
+    content_disposition,
     detect_type,
 )
 from app.csrf import CSRF_COOKIE
@@ -315,3 +316,88 @@ def test_filename_is_escaped_on_the_page(logged_in) -> None:
     page = logged_in.get(f"/runbooks/{runbook_id}").text
     assert "<b>x<b>" not in page
     assert "&lt;b&gt;x&lt;b&gt;.txt" in page
+
+
+# --- Download and delete ------------------------------------------------------
+
+
+def test_content_disposition_is_safe_for_any_name() -> None:
+    header = content_disposition('a"b;c caf\u00e9.txt')
+
+    assert header == (
+        "attachment; filename=\"a_b_c_caf_.txt\"; filename*=UTF-8''a%22b%3Bc%20caf%C3%A9.txt"
+    )
+
+
+@pytest.mark.parametrize("path", ["/attachments/1", "/attachments/1/delete"])
+def test_download_and_delete_pages_need_login(client, path) -> None:
+    response = client.get(path)
+
+    assert (response.status_code, response.headers["location"]) == (303, "/login")
+
+
+def test_delete_needs_a_csrf_token(client) -> None:
+    assert client.post("/attachments/1/delete").status_code == 403
+
+
+def uploaded(client: TestClient, name: str = "a.txt", data: bytes = b"hello\n") -> tuple[int, int]:
+    """Upload a file to a new runbook; return (runbook id, attachment id)."""
+    runbook_id = new_runbook(client)
+    assert upload(client, f"/runbooks/{runbook_id}/attachments", name, data).status_code == 303
+    return runbook_id, stored(runbook_id)[0].id
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("name", "data", "content_type"),
+    [
+        ("shot.png", PNG, "image/png"),
+        ("notes.txt", b"<script>alert(1)</script>", "text/plain; charset=utf-8"),
+    ],
+)
+def test_download_returns_the_file_safely(logged_in, name, data, content_type) -> None:
+    _, attachment_id = uploaded(logged_in, name, data)
+
+    response = logged_in.get(f"/attachments/{attachment_id}")
+
+    assert response.status_code == 200
+    assert response.content == data
+    assert response.headers["content-type"] == content_type
+    assert response.headers["content-disposition"].startswith(f'attachment; filename="{name}"')
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in response.headers["content-security-policy"]
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+@pytest.mark.integration
+def test_the_page_links_to_download_and_delete(logged_in) -> None:
+    runbook_id, attachment_id = uploaded(logged_in)
+
+    page = logged_in.get(f"/runbooks/{runbook_id}").text
+
+    assert f'href="/attachments/{attachment_id}"' in page
+    assert f'href="/attachments/{attachment_id}/delete"' in page
+
+
+@pytest.mark.integration
+def test_confirm_page_deletes_nothing_and_post_does(logged_in) -> None:
+    runbook_id, attachment_id = uploaded(logged_in)
+
+    assert logged_in.get(f"/attachments/{attachment_id}/delete").status_code == 200
+    assert len(stored(runbook_id)) == 1
+
+    response = logged_in.post(f"/attachments/{attachment_id}/delete", data={"csrf_token": CSRF})
+
+    assert (response.status_code, response.headers["location"]) == (
+        303,
+        f"/runbooks/{runbook_id}",
+    )
+    assert stored(runbook_id) == []
+    assert logged_in.get(f"/attachments/{attachment_id}").status_code == 404
+
+
+@pytest.mark.integration
+def test_missing_attachment_is_a_404(logged_in) -> None:
+    assert logged_in.get("/attachments/999999999").status_code == 404
+    response = logged_in.post("/attachments/999999999/delete", data={"csrf_token": CSRF})
+    assert response.status_code == 404
