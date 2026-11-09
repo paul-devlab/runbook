@@ -5,10 +5,11 @@
   <ul class="record-list">
     {% for attachment in attachments %}
       <li>
-        {{ attachment.filename }}
+        <a href="/attachments/{{ attachment.id }}">{{ attachment.filename }}</a>
         <p class="muted small">
           {{ attachment.size_bytes | filesize }}
           · Added {{ attachment.uploaded_at.strftime("%d %b %Y %H:%M") }} UTC by {{ attachment.uploaded_by.display_name }}
+          · <a href="/attachments/{{ attachment.id }}/delete">Delete</a>
         </p>
       </li>
     {% endfor %}

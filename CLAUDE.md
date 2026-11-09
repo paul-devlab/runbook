@@ -95,7 +95,9 @@ reach Claude don't count, failed calls do.
 Attachments (`app/attachments.py`) are stored in Postgres (`attachments` table), at most 10 MB
 each and 20 per record. The type is worked out from the file's content and must agree with its
 extension; what the browser claims is ignored; SVG and HTML are never allowed. Files are never
-sent to Claude. `LimitBodySize` refuses any request body over 11 MB, because forms are read
+sent to Claude. Downloads need a login and are always sent as downloads (`Content-Disposition:
+attachment`, `nosniff`, a sandboxing CSP), so a file can never run as part of the site.
+`LimitBodySize` refuses any request body over 11 MB, because forms are read
 before the login check. Uploads over 1 MB pass through `/tmp` (an `emptyDir` on staging, since
 the root filesystem is read-only).
 
